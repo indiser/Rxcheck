@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="RxCheck — a clinical-grade drug interaction checker. Verify medication safety, find generic alternatives, and review risk signals instantly." />
+    <title>RxCheck — Drug Interaction Safety Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="#top" aria-label="RxCheck home">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="capsule"></span>
+            <span class="check-stem"></span>
+          </span>
+          <span>
+            <strong>RxCheck</strong>
+            <small>Clinical medication safety</small>
+          </span>
+        </a>
+        <div class="source-pill">
+          <span class="status-dot"></span>
+          Private browser analysis
+        </div>
+      </header>
+
+      <main id="top" class="workspace">
+        <section class="input-panel" aria-labelledby="input-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Drug interaction checker</p>
+              <h1 id="input-title">Review medication safety with clinical confidence.</h1>
+            </div>
+            <p class="helper-copy">
+              RxCheck normalizes drug names with RxNorm and presents interaction
+              signals in a simple clinical risk dashboard.
+            </p>
+          </div>
+
+          <section class="photo-section" aria-labelledby="photo-title">
+            <div class="photo-heading">
+              <div>
+                <p class="eyebrow">Photo assist</p>
+                <h2 id="photo-title">Upload a prescription photo</h2>
+              </div>
+              <span id="photo-status" class="photo-status">No image selected</span>
+            </div>
+
+            <div class="photo-workflow">
+              <div class="upload-card">
+                <label class="photo-picker" for="prescription-photo">
+                  <span class="upload-icon" aria-hidden="true"></span>
+                  <strong>Choose photo</strong>
+                  <small>Use a clear JPG, PNG, or phone camera image.</small>
+                </label>
+                <input
+                  id="prescription-photo"
+                  class="visually-hidden"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                />
+                <div id="photo-preview" class="photo-preview">
+                  <img id="photo-preview-image" alt="Uploaded prescription preview" />
+                  <span>No preview yet</span>
+                </div>
+                <button id="remove-photo-btn" class="ghost-action remove-photo" type="button" disabled>
+                  Remove photo
+                </button>
+              </div>
+
+              <div class="chatgpt-extract">
+                <label for="chatgpt-text">Extracted prescription text (OCR or manual)</label>
+                <textarea
+                  id="chatgpt-text"
+                  class="compact-textarea"
+                  spellcheck="false"
+                  placeholder="Paste the text ChatGPT extracted from the photo here. RxCheck will auto-fill the drug list."
+                ></textarea>
+                <p id="extraction-status" class="field-note" aria-live="polite">
+                  Paste extracted text to auto-fill the drug names below.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <div class="mode-tabs" role="tablist" aria-label="Drug entry mode">
+            <button
+              class="mode-tab active"
+              id="manual-tab"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="manual-panel"
+              data-mode="manual"
+            >
+              Manual entry
+            </button>
+            <button
+              class="mode-tab"
+              id="paste-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="paste-panel"
+              data-mode="paste"
+            >
+              Prescription text
+            </button>
+          </div>
+
+          <div class="entry-panels">
+            <div
+              class="entry-panel active"
+              id="manual-panel"
+              role="tabpanel"
+              aria-labelledby="manual-tab"
+            >
+              <label for="manual-input">Drug names</label>
+              <textarea
+                id="manual-input"
+                spellcheck="false"
+                placeholder="Example: Metformin, Telmisartan, Aspirin"
+              ></textarea>
+              <p class="field-note">Separate drug names with commas, line breaks, or plus signs.</p>
+            </div>
+
+            <div class="entry-panel" id="paste-panel" role="tabpanel" aria-labelledby="paste-tab">
+              <label for="prescription-input">Extracted prescription text</label>
+              <textarea
+                id="prescription-input"
+                spellcheck="false"
+                placeholder="Paste OCR text such as: Tab Ecosprin 75 mg OD&#10;Tab Glycomet 500 mg BD&#10;Cap Pan 40 before breakfast"
+              ></textarea>
+              <p class="field-note">
+                RxCheck strips common dosage words and keeps likely medicine names for review.
+              </p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <button id="check-btn" class="primary-action" type="button">
+              Check interactions
+            </button>
+            <button id="extract-btn" class="ghost-action" type="button">
+              Extract names
+            </button>
+            <button id="sample-btn" class="ghost-action" type="button">
+              Load sample
+            </button>
+            <button id="clear-btn" class="icon-action" type="button" aria-label="Clear all">
+              Clear
+            </button>
+          </div>
+
+          <div class="review-block">
+            <div class="review-header">
+              <h2>Drugs to check</h2>
+              <span id="drug-count">0 selected</span>
+            </div>
+            <div id="chip-list" class="chip-list" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="dashboard" aria-labelledby="dashboard-title">
+          <div class="dashboard-header">
+            <div>
+              <p class="eyebrow">Risk dashboard</p>
+              <h2 id="dashboard-title">Awaiting a prescription</h2>
+            </div>
+            <div id="api-state" class="api-state">RxNorm not contacted yet</div>
+          </div>
+
+          <div class="risk-grid" aria-label="Risk summary">
+            <article class="risk-card low">
+              <span class="risk-label">Safe</span>
+              <strong id="green-count">0</strong>
+              <p>No known interaction found</p>
+            </article>
+            <article class="risk-card medium">
+              <span class="risk-label">Caution</span>
+              <strong id="yellow-count">0</strong>
+              <p>Use caution or monitor</p>
+            </article>
+            <article class="risk-card high">
+              <span class="risk-label">Dangerous</span>
+              <strong id="red-count">0</strong>
+              <p>Serious interaction signal</p>
+            </article>
+          </div>
+
+          <div id="alert-banner" class="alert-banner hidden" role="status"></div>
+
+          <div class="share-toolbar hidden" id="share-toolbar">
+            <button id="copy-summary-btn" class="ghost-action share-btn" type="button">
+              📋 Copy doctor visit summary
+            </button>
+            <button id="whatsapp-share-btn" class="ghost-action share-btn whatsapp-btn" type="button">
+              📤 Share on WhatsApp
+            </button>
+          </div>
+
+          <div class="results-layout">
+            <section class="results-block" aria-labelledby="interaction-title">
+              <div class="section-heading">
+                <h3 id="interaction-title">Interaction findings</h3>
+                <span id="interaction-source">No check run</span>
+              </div>
+              <div id="interaction-results" class="result-list empty-state">
+                <p>Add at least two drugs and run a check.</p>
+              </div>
+            </section>
+
+            <section class="results-block save-money-block" aria-labelledby="save-money-title">
+              <div class="section-heading">
+                <h3 id="save-money-title">Save Money</h3>
+                <span id="save-money-summary">30 common Indian brands</span>
+              </div>
+              <p class="save-money-note">
+                Compare the brand name with its generic equivalent before buying. MRPs are
+                approximate and can vary by strength, pack size, manufacturer, and city.
+              </p>
+              <div class="table-wrap" role="region" aria-label="Brand-to-generic medicine lookup">
+                <table class="save-money-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Brand</th>
+                      <th scope="col">Generic equivalent</th>
+                      <th scope="col">Approx brand MRP</th>
+                      <th scope="col">Lower-cost cue</th>
+                    </tr>
+                  </thead>
+                  <tbody id="save-money-results"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="results-block" aria-labelledby="generic-title">
+              <div class="section-heading">
+                <h3 id="generic-title">Generic alternatives and Indian price estimates</h3>
+                <span>Estimated ranges only</span>
+              </div>
+              <div id="drug-results" class="drug-results empty-state">
+                <p>Drug cards will appear after RxNorm lookup.</p>
+              </div>
+            </section>
+          </div>
+
+          <aside class="notice" aria-label="Medical notice">
+            <strong>Use with clinical judgement.</strong>
+            RxCheck is for screening and education. It can miss interactions,
+            duplicate therapies, allergies, renal dose issues, pregnancy warnings,
+            and local brand-specific formulations. Confirm decisions with a
+            qualified clinician or pharmacist.
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <template id="chip-template">
+      <button class="drug-chip" type="button">
+        <span class="chip-name"></span>
+        <span class="chip-remove" aria-hidden="true">x</span>
+      </button>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
