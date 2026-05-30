@@ -2,549 +2,6 @@
 
 const RXNORM_BASE = "https://rxnav.nlm.nih.gov/REST";
 
-const BRAND_HINTS = {
-  aldactone: "spironolactone",
-  amlong: "amlodipine",
-  atorva: "atorvastatin",
-  augmentin: "amoxicillin clavulanate",
-  azithral: "azithromycin",
-  calpol: "paracetamol",
-  cetzine: "cetirizine",
-  ciplox: "ciprofloxacin",
-  clopitab: "clopidogrel",
-  clopilet: "clopidogrel",
-  combiflam: "ibuprofen paracetamol",
-  crocin: "paracetamol",
-  deriphyllin: "etofylline theophylline",
-  dolo: "paracetamol",
-  emeset: "ondansetron",
-  ecosprin: "aspirin",
-  allegra: "fexofenadine",
-  glycomet: "metformin",
-  glucophage: "metformin",
-  januvia: "sitagliptin",
-  janumet: "sitagliptin metformin",
-  lasix: "furosemide",
-  montair: "montelukast levocetirizine",
-  pan: "pantoprazole",
-  pantocid: "pantoprazole",
-  razo: "rabeprazole",
-  rozavel: "rosuvastatin",
-  shelcal: "calcium carbonate",
-  telma: "telmisartan",
-  thyronorm: "levothyroxine",
-  udiliv: "ursodeoxycholic acid",
-};
-
-const BRAND_SAVINGS_LOOKUP = [
-  {
-    brand: "Dolo 650",
-    generic: "Paracetamol 650 mg",
-    mrp: "Rs. 34 per strip of 15",
-    cue: "Ask for paracetamol 650 mg tablets.",
-  },
-  {
-    brand: "Crocin Advance",
-    generic: "Paracetamol 500 mg",
-    mrp: "Rs. 20 per strip of 15",
-    cue: "Compare with plain paracetamol 500 mg.",
-  },
-  {
-    brand: "Calpol 500",
-    generic: "Paracetamol 500 mg",
-    mrp: "Rs. 15 per strip of 15",
-    cue: "Plain paracetamol alternatives are widely available.",
-  },
-  {
-    brand: "Combiflam",
-    generic: "Ibuprofen 400 mg + Paracetamol 325 mg",
-    mrp: "Rs. 42 per strip of 20",
-    cue: "Confirm if a combination painkiller is needed.",
-  },
-  {
-    brand: "Ecosprin 75",
-    generic: "Aspirin 75 mg",
-    mrp: "Rs. 5 per strip of 14",
-    cue: "Ask for low-dose aspirin 75 mg.",
-  },
-  {
-    brand: "Clopitab 75",
-    generic: "Clopidogrel 75 mg",
-    mrp: "Rs. 115 per strip of 15",
-    cue: "Compare with clopidogrel 75 mg generics.",
-  },
-  {
-    brand: "Clopilet 75",
-    generic: "Clopidogrel 75 mg",
-    mrp: "Rs. 107 per strip of 15",
-    cue: "Look for the same strength and tablet count.",
-  },
-  {
-    brand: "Glycomet 500",
-    generic: "Metformin 500 mg",
-    mrp: "Rs. 20 per strip of 20",
-    cue: "Immediate-release and SR forms are not interchangeable.",
-  },
-  {
-    brand: "Janumet 50/500",
-    generic: "Sitagliptin 50 mg + Metformin 500 mg",
-    mrp: "Rs. 430 per strip of 15",
-    cue: "Ask if separate generic tablets are appropriate.",
-  },
-  {
-    brand: "Januvia 100",
-    generic: "Sitagliptin 100 mg",
-    mrp: "Rs. 430 per strip of 7",
-    cue: "Compare sitagliptin generics of the same strength.",
-  },
-  {
-    brand: "Amaryl 1",
-    generic: "Glimepiride 1 mg",
-    mrp: "Rs. 115 per strip of 30",
-    cue: "Do not swap diabetes medicines without dose review.",
-  },
-  {
-    brand: "Telma 40",
-    generic: "Telmisartan 40 mg",
-    mrp: "Rs. 160 per strip of 15",
-    cue: "Ask for telmisartan 40 mg tablets.",
-  },
-  {
-    brand: "Amlong 5",
-    generic: "Amlodipine 5 mg",
-    mrp: "Rs. 32 per strip of 15",
-    cue: "Compare with amlodipine 5 mg generics.",
-  },
-  {
-    brand: "Lasix 40",
-    generic: "Furosemide 40 mg",
-    mrp: "Rs. 15 per strip of 15",
-    cue: "Check dose timing and potassium advice.",
-  },
-  {
-    brand: "Aldactone 25",
-    generic: "Spironolactone 25 mg",
-    mrp: "Rs. 37 per strip of 15",
-    cue: "Confirm potassium monitoring with the prescriber.",
-  },
-  {
-    brand: "Atorva 10",
-    generic: "Atorvastatin 10 mg",
-    mrp: "Rs. 80 per strip of 10",
-    cue: "Compare with atorvastatin 10 mg generics.",
-  },
-  {
-    brand: "Rozavel 10",
-    generic: "Rosuvastatin 10 mg",
-    mrp: "Rs. 155 per strip of 10",
-    cue: "Rosuvastatin and atorvastatin are not direct swaps.",
-  },
-  {
-    brand: "Thyronorm 50",
-    generic: "Levothyroxine 50 mcg",
-    mrp: "Rs. 180 per bottle of 120",
-    cue: "Keep the same brand unless the doctor advises a switch.",
-  },
-  {
-    brand: "Pan 40",
-    generic: "Pantoprazole 40 mg",
-    mrp: "Rs. 140 per strip of 15",
-    cue: "Ask for pantoprazole 40 mg tablets.",
-  },
-  {
-    brand: "Pantocid 40",
-    generic: "Pantoprazole 40 mg",
-    mrp: "Rs. 182 per strip of 15",
-    cue: "Compare with same-strength pantoprazole generics.",
-  },
-  {
-    brand: "Razo 20",
-    generic: "Rabeprazole 20 mg",
-    mrp: "Rs. 125 per strip of 15",
-    cue: "Ask for rabeprazole 20 mg tablets.",
-  },
-  {
-    brand: "Augmentin 625 Duo",
-    generic: "Amoxicillin 500 mg + Clavulanic acid 125 mg",
-    mrp: "Rs. 220 per strip of 10",
-    cue: "Finish antibiotics only as prescribed.",
-  },
-  {
-    brand: "Azithral 500",
-    generic: "Azithromycin 500 mg",
-    mrp: "Rs. 132 per strip of 3",
-    cue: "Confirm the exact course length.",
-  },
-  {
-    brand: "Ciplox 500",
-    generic: "Ciprofloxacin 500 mg",
-    mrp: "Rs. 55 per strip of 10",
-    cue: "Avoid substituting antibiotics without approval.",
-  },
-  {
-    brand: "Cetzine 10",
-    generic: "Cetirizine 10 mg",
-    mrp: "Rs. 30 per strip of 15",
-    cue: "Compare with cetirizine 10 mg generics.",
-  },
-  {
-    brand: "Allegra 120",
-    generic: "Fexofenadine 120 mg",
-    mrp: "Rs. 230 per strip of 10",
-    cue: "Ask for fexofenadine 120 mg tablets.",
-  },
-  {
-    brand: "Montair LC",
-    generic: "Montelukast 10 mg + Levocetirizine 5 mg",
-    mrp: "Rs. 250 per strip of 15",
-    cue: "Confirm if combination therapy is needed.",
-  },
-  {
-    brand: "Shelcal 500",
-    generic: "Calcium carbonate 500 mg + Vitamin D3",
-    mrp: "Rs. 145 per strip of 15",
-    cue: "Compare calcium + vitamin D3 combinations.",
-  },
-  {
-    brand: "Emeset 4",
-    generic: "Ondansetron 4 mg",
-    mrp: "Rs. 58 per strip of 10",
-    cue: "Ask for ondansetron 4 mg tablets.",
-  },
-  {
-    brand: "Udiliv 300",
-    generic: "Ursodeoxycholic acid 300 mg",
-    mrp: "Rs. 570 per strip of 15",
-    cue: "Compare same-strength UDCA generics.",
-  },
-];
-
-const PRICE_CATALOG = {
-  acetaminophen: {
-    display: "Paracetamol / Acetaminophen",
-    alternatives: ["Paracetamol tablet", "Paracetamol suspension"],
-    range: "Rs. 12-45 per strip of 10 tablets",
-  },
-  amlodipine: {
-    display: "Amlodipine",
-    alternatives: ["Amlodipine 2.5 mg", "Amlodipine 5 mg", "Amlodipine 10 mg"],
-    range: "Rs. 12-60 per strip of 10 tablets",
-  },
-  amoxicillin: {
-    display: "Amoxicillin",
-    alternatives: ["Amoxicillin capsule", "Amoxicillin + clavulanate tablet"],
-    range: "Rs. 45-220 per strip",
-  },
-  aspirin: {
-    display: "Aspirin",
-    alternatives: ["Aspirin gastro-resistant tablet", "Low-dose aspirin tablet"],
-    range: "Rs. 5-45 per strip of 14 tablets",
-  },
-  atorvastatin: {
-    display: "Atorvastatin",
-    alternatives: ["Atorvastatin 10 mg", "Atorvastatin 20 mg", "Atorvastatin 40 mg"],
-    range: "Rs. 35-190 per strip of 10 tablets",
-  },
-  azithromycin: {
-    display: "Azithromycin",
-    alternatives: ["Azithromycin 250 mg", "Azithromycin 500 mg"],
-    range: "Rs. 55-150 per strip of 3 tablets",
-  },
-  calcium: {
-    display: "Calcium carbonate",
-    alternatives: ["Calcium carbonate", "Calcium + vitamin D3"],
-    range: "Rs. 60-220 per strip",
-  },
-  carbamazepine: {
-    display: "Carbamazepine",
-    alternatives: ["Carbamazepine immediate-release", "Carbamazepine controlled-release"],
-    range: "Rs. 18-95 per strip of 10 tablets",
-  },
-  ciprofloxacin: {
-    display: "Ciprofloxacin",
-    alternatives: ["Ciprofloxacin 250 mg", "Ciprofloxacin 500 mg"],
-    range: "Rs. 25-95 per strip of 10 tablets",
-  },
-  clarithromycin: {
-    display: "Clarithromycin",
-    alternatives: ["Clarithromycin 250 mg", "Clarithromycin 500 mg"],
-    range: "Rs. 120-420 per strip",
-  },
-  clopidogrel: {
-    display: "Clopidogrel",
-    alternatives: ["Clopidogrel 75 mg", "Clopidogrel + aspirin fixed dose"],
-    range: "Rs. 35-170 per strip of 10 tablets",
-  },
-  diclofenac: {
-    display: "Diclofenac",
-    alternatives: ["Diclofenac tablet", "Diclofenac gel", "Diclofenac injection"],
-    range: "Rs. 12-120 per pack",
-  },
-  digoxin: {
-    display: "Digoxin",
-    alternatives: ["Digoxin 0.25 mg tablet", "Digoxin elixir"],
-    range: "Rs. 10-70 per strip",
-  },
-  escitalopram: {
-    display: "Escitalopram",
-    alternatives: ["Escitalopram 5 mg", "Escitalopram 10 mg", "Escitalopram 20 mg"],
-    range: "Rs. 35-180 per strip of 10 tablets",
-  },
-  fluconazole: {
-    display: "Fluconazole",
-    alternatives: ["Fluconazole 150 mg", "Fluconazole 200 mg"],
-    range: "Rs. 15-120 per strip",
-  },
-  fluoxetine: {
-    display: "Fluoxetine",
-    alternatives: ["Fluoxetine 20 mg capsule", "Fluoxetine dispersible tablet"],
-    range: "Rs. 25-125 per strip",
-  },
-  furosemide: {
-    display: "Furosemide",
-    alternatives: ["Furosemide tablet", "Furosemide injection"],
-    range: "Rs. 8-60 per strip",
-  },
-  glimepiride: {
-    display: "Glimepiride",
-    alternatives: ["Glimepiride 1 mg", "Glimepiride 2 mg", "Glimepiride + metformin"],
-    range: "Rs. 18-140 per strip",
-  },
-  ibuprofen: {
-    display: "Ibuprofen",
-    alternatives: ["Ibuprofen tablet", "Ibuprofen + paracetamol tablet"],
-    range: "Rs. 12-85 per strip",
-  },
-  insulin: {
-    display: "Insulin",
-    alternatives: ["Regular insulin", "NPH insulin", "Premix insulin"],
-    range: "Rs. 140-900 per vial or cartridge",
-  },
-  levothyroxine: {
-    display: "Levothyroxine",
-    alternatives: ["Levothyroxine 25 mcg", "Levothyroxine 50 mcg", "Levothyroxine 100 mcg"],
-    range: "Rs. 95-190 per bottle of 100 tablets",
-  },
-  linezolid: {
-    display: "Linezolid",
-    alternatives: ["Linezolid 600 mg tablet", "Linezolid suspension"],
-    range: "Rs. 250-850 per strip",
-  },
-  losartan: {
-    display: "Losartan",
-    alternatives: ["Losartan 25 mg", "Losartan 50 mg", "Losartan + hydrochlorothiazide"],
-    range: "Rs. 25-120 per strip",
-  },
-  metformin: {
-    display: "Metformin",
-    alternatives: ["Metformin immediate-release", "Metformin sustained-release"],
-    range: "Rs. 18-110 per strip of 10 tablets",
-  },
-  methotrexate: {
-    display: "Methotrexate",
-    alternatives: ["Methotrexate tablet", "Methotrexate injection"],
-    range: "Rs. 40-220 per pack",
-  },
-  omeprazole: {
-    display: "Omeprazole",
-    alternatives: ["Omeprazole capsule", "Omeprazole + domperidone capsule"],
-    range: "Rs. 18-110 per strip",
-  },
-  pantoprazole: {
-    display: "Pantoprazole",
-    alternatives: ["Pantoprazole 40 mg", "Pantoprazole + domperidone capsule"],
-    range: "Rs. 25-160 per strip",
-  },
-  phenytoin: {
-    display: "Phenytoin",
-    alternatives: ["Phenytoin tablet", "Phenytoin suspension"],
-    range: "Rs. 12-80 per strip",
-  },
-  ramipril: {
-    display: "Ramipril",
-    alternatives: ["Ramipril 2.5 mg", "Ramipril 5 mg"],
-    range: "Rs. 30-140 per strip",
-  },
-  rivaroxaban: {
-    display: "Rivaroxaban",
-    alternatives: ["Rivaroxaban 10 mg", "Rivaroxaban 15 mg", "Rivaroxaban 20 mg"],
-    range: "Rs. 120-620 per strip",
-  },
-  rosuvastatin: {
-    display: "Rosuvastatin",
-    alternatives: ["Rosuvastatin 5 mg", "Rosuvastatin 10 mg", "Rosuvastatin 20 mg"],
-    range: "Rs. 45-220 per strip",
-  },
-  sertraline: {
-    display: "Sertraline",
-    alternatives: ["Sertraline 25 mg", "Sertraline 50 mg", "Sertraline 100 mg"],
-    range: "Rs. 45-210 per strip",
-  },
-  simvastatin: {
-    display: "Simvastatin",
-    alternatives: ["Simvastatin 10 mg", "Simvastatin 20 mg", "Simvastatin 40 mg"],
-    range: "Rs. 30-170 per strip",
-  },
-  sitagliptin: {
-    display: "Sitagliptin",
-    alternatives: ["Sitagliptin tablet", "Sitagliptin + metformin tablet"],
-    range: "Rs. 80-360 per strip",
-  },
-  spironolactone: {
-    display: "Spironolactone",
-    alternatives: ["Spironolactone 25 mg", "Spironolactone 50 mg"],
-    range: "Rs. 20-130 per strip",
-  },
-  telmisartan: {
-    display: "Telmisartan",
-    alternatives: ["Telmisartan 40 mg", "Telmisartan 80 mg", "Telmisartan + amlodipine"],
-    range: "Rs. 45-190 per strip",
-  },
-  tramadol: {
-    display: "Tramadol",
-    alternatives: ["Tramadol capsule", "Tramadol + paracetamol tablet"],
-    range: "Rs. 20-120 per strip",
-  },
-  warfarin: {
-    display: "Warfarin",
-    alternatives: ["Warfarin 1 mg", "Warfarin 2 mg", "Warfarin 5 mg"],
-    range: "Rs. 18-80 per strip",
-  },
-};
-
-const INTERACTION_RULES = [
-  {
-    level: "high",
-    a: ["warfarin"],
-    b: ["aspirin", "ibuprofen", "diclofenac", "naproxen"],
-    message: "Higher bleeding risk when warfarin is combined with antiplatelet drugs or NSAIDs.",
-    action: "Avoid casual co-use and check INR/bleeding plan with the prescriber.",
-  },
-  {
-    level: "high",
-    a: ["warfarin"],
-    b: ["fluconazole", "metronidazole", "trimethoprim"],
-    message: "Can raise anticoagulant effect and INR.",
-    action: "Needs clinician review, INR monitoring, or an alternative antimicrobial.",
-  },
-  {
-    level: "high",
-    a: ["simvastatin", "atorvastatin"],
-    b: ["clarithromycin", "erythromycin"],
-    message: "Macrolides can increase statin exposure and muscle toxicity risk.",
-    action: "Consider holding or changing the statin/antibiotic under medical advice.",
-  },
-  {
-    level: "high",
-    a: ["sildenafil", "tadalafil"],
-    b: ["nitroglycerin", "isosorbide"],
-    message: "PDE5 inhibitors with nitrates can cause dangerous hypotension.",
-    action: "Do not combine without emergency-level clinician direction.",
-  },
-  {
-    level: "high",
-    a: ["linezolid"],
-    b: ["sertraline", "fluoxetine", "escitalopram", "tramadol"],
-    message: "Serotonergic toxicity risk may increase.",
-    action: "Needs prescriber review and monitoring for serotonin syndrome.",
-  },
-  {
-    level: "high",
-    a: ["methotrexate"],
-    b: ["trimethoprim", "sulfamethoxazole"],
-    message: "Additive antifolate effects can cause severe marrow toxicity.",
-    action: "Avoid unless specifically supervised.",
-  },
-  {
-    level: "medium",
-    a: ["aspirin"],
-    b: ["clopidogrel", "rivaroxaban", "apixaban"],
-    message: "Bleeding risk rises with combined antiplatelet or anticoagulant therapy.",
-    action: "May be intentional after cardiac events, but confirm duration and warning signs.",
-  },
-  {
-    level: "medium",
-    a: ["ibuprofen", "diclofenac", "naproxen"],
-    b: ["aspirin"],
-    message: "NSAIDs can increase bleeding risk and may reduce aspirin cardioprotection.",
-    action: "Separate timing or choose an alternative only with pharmacist advice.",
-  },
-  {
-    level: "medium",
-    a: ["spironolactone"],
-    b: ["telmisartan", "losartan", "ramipril", "enalapril", "lisinopril"],
-    message: "Potassium can rise when spironolactone is combined with ACE inhibitors or ARBs.",
-    action: "Check renal function and potassium monitoring plan.",
-  },
-  {
-    level: "medium",
-    a: ["digoxin"],
-    b: ["amiodarone", "verapamil", "clarithromycin"],
-    message: "Digoxin levels may rise, increasing toxicity risk.",
-    action: "Review dose and monitor pulse, nausea, vision changes, and serum levels.",
-  },
-  {
-    level: "medium",
-    a: ["ciprofloxacin"],
-    b: ["glimepiride", "insulin"],
-    message: "Fluoroquinolones can disturb glucose control.",
-    action: "Monitor glucose closely and review hypoglycemia symptoms.",
-  },
-  {
-    level: "medium",
-    a: ["levothyroxine"],
-    b: ["calcium", "calcium carbonate", "iron", "ferrous"],
-    message: "Minerals can reduce levothyroxine absorption.",
-    action: "Separate administration by at least 4 hours unless advised otherwise.",
-  },
-  {
-    level: "medium",
-    a: ["phenytoin", "carbamazepine"],
-    b: ["warfarin", "rivaroxaban", "apixaban"],
-    message: "Enzyme-inducing antiepileptics can alter anticoagulant exposure.",
-    action: "Requires clinician review of anticoagulant choice and monitoring.",
-  },
-];
-
-const PRESCRIPTION_STOP_WORDS = new Set([
-  "a",
-  "after",
-  "alternate",
-  "before",
-  "bd",
-  "bf",
-  "bid",
-  "cap",
-  "caps",
-  "capsule",
-  "daily",
-  "days",
-  "dose",
-  "for",
-  "hs",
-  "inj",
-  "injection",
-  "mane",
-  "mg",
-  "ml",
-  "nocte",
-  "od",
-  "once",
-  "oral",
-  "pc",
-  "po",
-  "qid",
-  "sos",
-  "stat",
-  "tab",
-  "tablet",
-  "tds",
-  "tid",
-  "twice",
-  "with",
-  "x",
-]);
-
 const state = {
   mode: "manual",
   selectedDrugs: [],
@@ -590,6 +47,8 @@ const dom = {
   copySummaryBtn: document.querySelector("#copy-summary-btn"),
   whatsappShareBtn: document.querySelector("#whatsapp-share-btn"),
   shareToolbar: document.querySelector("#share-toolbar"),
+  disclaimerModal: document.querySelector("#disclaimer-modal"),
+  acceptDisclaimerBtn: document.querySelector("#accept-disclaimer-btn"),
 };
 
 dom.modeTabs.forEach((tab) => {
@@ -665,6 +124,15 @@ dom.whatsappShareBtn.addEventListener("click", shareWhatsApp);
 
 setSelectedDrugs([]);
 resetDashboard("Add drug names or paste prescription text to begin.");
+
+// Disclaimer Modal logic
+if (!localStorage.getItem("rxcheck_disclaimer_accepted")) {
+  dom.disclaimerModal.showModal();
+}
+dom.acceptDisclaimerBtn.addEventListener("click", () => {
+  localStorage.setItem("rxcheck_disclaimer_accepted", "true");
+  dom.disclaimerModal.close();
+});
 
 function setMode(mode) {
   state.mode = mode;
@@ -835,32 +303,54 @@ function updateExtractionStatus(count, hasText) {
 }
 
 function parseManualInput(value) {
-  return uniqueDrugs(
-    value
-      .split(/[\n,+;]+/)
-      .map((item) => cleanDrugText(item))
-      .filter(Boolean),
-  );
+  const candidates = [];
+  value.split(/[\n,+;]+/).forEach((item) => {
+    const { cleaned } = cleanPrescriptionLine(item);
+    if (cleaned) candidates.push(cleaned);
+  });
+  return uniqueDrugs(candidates);
 }
 
 function extractPrescriptionDrugs(value) {
   const candidates = [];
   let hasLowConfidence = false;
   
-  value
-    .split(/\n|\.|\r|and|\+|&/i)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .forEach((line) => {
-      const { cleaned, confidence } = cleanPrescriptionLine(line);
-      if (cleaned) {
-        candidates.push(cleaned);
-        if (confidence === "low") {
-          hasLowConfidence = true;
-        }
+  // 1. Insert spaces between letters and numbers (e.g., Telmisartan40mg -> Telmisartan 40mg)
+  let text = value.replace(/([a-zA-Z])(\d)/g, "$1 $2");
+  
+  // 2. Line grouping for broken OCR
+  let rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let groupedLines = [];
+  
+  for (let line of rawLines) {
+    if (groupedLines.length > 0) {
+      const prev = groupedLines[groupedLines.length - 1];
+      // Merge if current line starts with a number, or is a common continuation (dosage/shorthand),
+      // or if previous line ended with a continuation character
+      if (/^\d/.test(line) || /^(mg|mcg|g|ml|bd|od|tds|sos)\b/i.test(line) || /[+\-&]$/.test(prev)) {
+        groupedLines[groupedLines.length - 1] += " " + line;
+        continue;
       }
-    });
-    
+    }
+    groupedLines.push(line);
+  }
+
+  // 3. Safe segment splitting using word boundaries
+  groupedLines.forEach(line => {
+    line.split(/\.|\band\b|\+|&/i)
+      .map(seg => seg.trim())
+      .filter(Boolean)
+      .forEach(seg => {
+        const { cleaned, confidence } = cleanPrescriptionLine(seg);
+        if (cleaned) {
+          candidates.push(cleaned);
+          if (confidence === "low") {
+            hasLowConfidence = true;
+          }
+        }
+      });
+  });
+  
   if (hasLowConfidence && candidates.length > 0) {
     showBanner("Some medicine names may need manual correction.");
   }
@@ -880,8 +370,31 @@ function cleanPrescriptionLine(line) {
     .replace(/\s+/g, " ")
     .trim();
 
-  const words = normalized
-    .split(/\s+/)
+  // Extract Indian prescription shorthand before stop words remove it
+  let shorthand = "";
+  const shorthandMap = {
+    od: "Once daily",
+    bd: "Twice daily",
+    bid: "Twice daily",
+    tds: "Three times daily",
+    tid: "Three times daily",
+    qid: "Four times daily",
+    sos: "As needed",
+    hs: "At bedtime",
+    mane: "In the morning",
+    nocte: "At night",
+    stat: "Immediately"
+  };
+  const rawWords = normalized.split(/\s+/);
+  for (const w of rawWords) {
+    const lw = w.toLowerCase().replace(/[^\w]/g, "");
+    if (shorthandMap[lw]) {
+      shorthand = shorthandMap[lw];
+      break; // Just take the first valid frequency
+    }
+  }
+
+  const words = rawWords
     .filter((word) => word.length > 1)
     .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
 
@@ -889,10 +402,12 @@ function cleanPrescriptionLine(line) {
     return { cleaned: "", confidence: "none" };
   }
 
+  const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
+
   // Exact brand match
   const knownBrand = words.find((word) => BRAND_HINTS[word.toLowerCase()]);
   if (knownBrand) {
-    return { cleaned: titleCase(knownBrand), confidence: "high" };
+    return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
   }
   
   // Fuzzy brand / generic match
@@ -904,11 +419,11 @@ function cleanPrescriptionLine(line) {
   if (match) {
     const lw = match.toLowerCase();
     const resolved = BRAND_HINTS[lw] || match;
-    return { cleaned: titleCase(resolved), confidence: "high" };
+    return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
   }
 
   // Fallback guess
-  return { cleaned: titleCase(words.slice(0, 2).join(" ")), confidence: "low" };
+  return { cleaned: formatCleaned(titleCase(words.slice(0, 2).join(" "))), confidence: "low" };
 }
 
 function cleanDrugText(text) {
@@ -1083,10 +598,57 @@ async function resolveDrug(rawName, signal) {
   }
 }
 
+function levenshteinDistance(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+  
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // insertion
+        matrix[j - 1][i] + 1, // deletion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
 function mapBrandHint(name) {
   const cleaned = cleanDrugText(name).toLowerCase();
   const first = cleaned.split(/\s+/)[0];
-  return BRAND_HINTS[cleaned] || BRAND_HINTS[first] || cleaned;
+  
+  if (BRAND_HINTS[cleaned]) return BRAND_HINTS[cleaned];
+  if (BRAND_HINTS[first]) return BRAND_HINTS[first];
+  
+  const catalogKeys = Object.keys(PRICE_CATALOG);
+  const hintKeys = Object.keys(BRAND_HINTS);
+  
+  let minDistance = Infinity;
+  let bestMatch = cleaned;
+  
+  for (const key of [...hintKeys, ...catalogKeys]) {
+    const d1 = levenshteinDistance(cleaned, key);
+    const d2 = levenshteinDistance(first, key);
+    const d = Math.min(d1, d2);
+    
+    // Strict threshold: Max distance 2, and the word must be at least 6 chars long to allow distance 2.
+    // Distance 1 allowed for 4+ chars.
+    const threshold = key.length > 5 ? 2 : key.length >= 4 ? 1 : 0;
+    
+    if (d <= threshold && d < minDistance) {
+      minDistance = d;
+      bestMatch = BRAND_HINTS[key] || key; 
+    }
+  }
+  
+  return bestMatch;
 }
 
 async function findRxcui(name, signal) {
@@ -1310,6 +872,15 @@ function renderInteractionResults(findings, resolved) {
     return;
   }
 
+  const hasHighRisk = findings.some(f => f.level === "high");
+  if (hasHighRisk) {
+    const warning = document.createElement("div");
+    warning.className = "emergency-warning";
+    warning.innerHTML = `<strong>Consult Your Doctor Immediately</strong>
+      We found potentially dangerous interactions. Do not combine these medications without urgent medical advice.`;
+    dom.interactionResults.append(warning);
+  }
+
   findings
     .sort((a, b) => riskWeight(b.level) - riskWeight(a.level))
     .forEach((finding) => {
@@ -1436,6 +1007,7 @@ function renderDrugCards(resolved) {
         <dd class="price">${escapeHtml(drug.priceRange)}</dd>
       </dl>
       <div class="meta-row">
+        ${confBadgeText === "Low Confidence" ? '<span class="meta-chip" style="color:var(--red-dark); border-color:var(--red-soft); background:var(--red-soft)">Verify Name! Guessed from OCR.</span>' : ""}
         <span class="meta-chip">Confirm brand, dose, and salt locally</span>
         <span class="meta-chip">Do not substitute without prescriber approval</span>
       </div>
@@ -1471,7 +1043,39 @@ function findCatalogEntry(text) {
   return key ? PRICE_CATALOG[key] : null;
 }
 
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCachedJson(url) {
+  try {
+    const cached = localStorage.getItem(url);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < CACHE_TTL) {
+        return parsed.data;
+      }
+      localStorage.removeItem(url); // Expired
+    }
+  } catch (err) {
+    console.warn("Cache read failed", err);
+  }
+  return null;
+}
+
+function cacheJson(url, data) {
+  try {
+    localStorage.setItem(url, JSON.stringify({
+      timestamp: Date.now(),
+      data: data
+    }));
+  } catch (err) {
+    console.warn("Cache write failed, possible quota exceeded", err);
+  }
+}
+
 async function getJson(url, timeout = 9000, maxRetries = 2, externalSignal = null) {
+  const cached = getCachedJson(url);
+  if (cached) return cached;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), timeout);
@@ -1490,7 +1094,9 @@ async function getJson(url, timeout = 9000, maxRetries = 2, externalSignal = nul
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      return await response.json();
+      const data = await response.json();
+      cacheJson(url, data);
+      return data;
     } catch (err) {
       if ((err.name === "AbortError" || err.message === "Aborted") && externalSignal && externalSignal.aborted) {
         throw err;

@@ -1299,3 +1299,55 @@ textarea::placeholder {
     min-height: 150px;
   }
 }
+
+/* ─── Modal ─── */
+.disclaimer-modal {
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  max-width: 480px;
+  margin: auto;
+}
+
+.disclaimer-modal::backdrop {
+  background: rgba(26, 35, 50, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  padding: 32px;
+  text-align: center;
+}
+
+.modal-content h2 {
+  color: var(--red-dark);
+  margin-bottom: 16px;
+}
+
+.modal-content p {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
+
+/* ─── Emergency Escalation ─── */
+.emergency-warning {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #F5B8C1;
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: var(--red-soft);
+  color: var(--red-dark);
+  font-size: 0.95rem;
+  font-weight: 600;
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.emergency-warning strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}

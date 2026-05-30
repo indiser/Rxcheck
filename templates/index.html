@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="./static/styles.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -270,7 +270,18 @@
       </button>
     </template>
 
+    <dialog id="disclaimer-modal" class="disclaimer-modal">
+      <div class="modal-content">
+        <h2>Medical Disclaimer</h2>
+        <p><strong>RxCheck is an educational AI tool, not a doctor.</strong></p>
+        <p>This application provides automated interaction screening and generic medicine estimates. It may miss critical interactions, duplicate therapies, or local brand formulations.</p>
+        <p>Never change or stop your medications without consulting a qualified clinician or pharmacist.</p>
+        <button id="accept-disclaimer-btn" class="primary-action">I Understand & Agree</button>
+      </div>
+    </dialog>
+
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="./static/data.js"></script>
+    <script src="./static/app.js"></script>
   </body>
 </html>
