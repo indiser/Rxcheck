@@ -1,6 +1,6 @@
 # 💊 RxCheck — Clinical Drug Interaction Safety Dashboard
 
-**RxCheck** is a production-grade drug interaction checker with PostgreSQL-backed clinical rules, automated FDA data ingestion, and intelligent prescription OCR. Built for healthcare professionals and patients who need reliable medication safety screening with complete privacy.
+**RxCheck** is a production-grade drug interaction checker with PostgreSQL-backed clinical rules, automated FDA data ingestion, multi-provider LLM router, and intelligent prescription image analysis. Built for healthcare professionals and patients who need reliable medication safety screening with complete privacy.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Flask](https://img.shields.io/badge/flask-3.1+-green.svg)
@@ -20,16 +20,17 @@
 ### 🧬 **Clinical Intelligence**
 - **PostgreSQL-backed rules engine** with curated interaction patterns
 - **openFDA SPL data ingestion** with automated ETL pipeline
-- **Multi-provider LLM router** (Groq, Cerebras, Gemini, OpenRouter, HuggingFace)
+- **Multi-provider LLM router** (Groq, Cerebras, Gemini, OpenRouter, HuggingFace) with automatic failover
 - **Trigram similarity matching** (threshold 0.85) eliminates dangerous substring matches
 - **Levenshtein fuzzy matching** for Indian brand name normalization
 - **RxNorm integration** for standardized drug nomenclature
 
 ### 📸 **Smart Prescription Processing**
-- Client-side OCR with **Tesseract.js**
-- Automatic image preprocessing (grayscale, thresholding, scaling)
+- Client-side image upload with Gemini 2.5 Flash vision analysis
+- Automatic image preprocessing and clinical OCR
 - Indian prescription shorthand extraction (OD, BD, TDS, etc.)
 - Multi-line prescription text grouping for broken OCR output
+- Support for single-letter vitamins (A, C, D, E, K) and numeric compounds (Omega 3, D3)
 
 ### 💰 **Cost Savings Intelligence**
 - 34 common Indian brand-to-generic mappings
@@ -42,6 +43,7 @@
 - Emergency escalation warnings for high-risk interactions
 - WhatsApp sharing and clipboard export
 - Fully responsive mobile-first design
+- Dual input modes: manual entry and prescription text parsing
 
 ---
 
@@ -54,7 +56,8 @@ app.py
 ├── GET  /api/rxnorm/<path>         → Transparent RxNorm proxy
 ├── GET  /api/local-data            → Serve safe catalog data
 ├── POST /api/normalize-drug        → Server-side brand→generic matching
-└── POST /api/check-interactions    → PostgreSQL interaction query
+├── POST /api/check-interactions    → PostgreSQL interaction query
+└── POST /api/extract-vision        → Gemini image analysis endpoint
 ```
 
 ### ETL Pipeline (openFDA Ingestion)
@@ -111,9 +114,272 @@ CREATE TABLE etl_sync_state (
 
 ### Frontend (Vanilla JS SPA)
 - **No framework dependencies** — pure JavaScript
-- **Tesseract.js** for client-side OCR
+- **Gemini Vision API** for prescription image analysis
 - **RxNorm proxy calls** — all API traffic routed through Flask
 - **LocalStorage** for disclaimer acceptance tracking
+- **Dual input modes** — manual entry and prescription text parsing
+
+---
+
+## 📐 System Design Diagrams
+
+### High-Level System Architecture
+
+```mermaid
+graph TB
+    subgraph Client["🖥️ Client Browser"]
+        UI["SPA Interface<br/>(Vanilla JS)"]
+        IMG["Image Upload<br/>Module"]
+    end
+    
+    subgraph Flask["⚙️ Flask Backend (app.py)"]
+        API["REST API<br/>Endpoints"]
+        NORM["Drug Normalizer<br/>(Levenshtein)"]
+        VISION["Vision Proxy<br/>(Gemini)"]
+    end
+    
+    subgraph Database["🗄️ PostgreSQL"]
+        DRUGS[("drugs<br/>table")]
+        INTER[("interactions<br/>table")]
+        ETL_STATE[("etl_sync_state<br/>table")]
+    end
+    
+    subgraph External["🌐 External APIs"]
+        RXNORM["RxNorm API<br/>(NLM)"]
+        GEMINI["Gemini Vision<br/>(Google)"]
+        FDA["openFDA API<br/>(Drug Labels)"]
+    end
+    
+    subgraph ETL["🔄 ETL Pipeline (etl.py)"]
+        FETCH["FDA Fetcher"]
+        LLM["LLM Router<br/>(Multi-Provider)"]
+        LOADER["DB Loader"]
+    end
+    
+    UI -->|"1. Drug Names"| API
+    IMG -->|"2. Prescription Image"| VISION
+    API -->|"3. Normalize"| NORM
+    API -->|"4. Query Interactions"| INTER
+    NORM -->|"5. Fuzzy Match"| DRUGS
+    VISION -->|"6. OCR Request"| GEMINI
+    API -->|"7. Proxy Request"| RXNORM
+    
+    FETCH -->|"8. Fetch Labels"| FDA
+    FETCH -->|"9. Extract Text"| LLM
+    LLM -->|"10. Structured Data"| LOADER
+    LOADER -->|"11. Upsert"| DRUGS
+    LOADER -->|"12. Upsert"| INTER
+    LOADER -->|"13. Checkpoint"| ETL_STATE
+    
+    style Client fill:#e1f5ff
+    style Flask fill:#fff4e1
+    style Database fill:#e8f5e9
+    style External fill:#fce4ec
+    style ETL fill:#f3e5f5
+```
+
+### Drug Interaction Check Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Flask
+    participant RxNorm
+    participant PostgreSQL
+    
+    User->>Browser: Enter drug names
+    Browser->>Flask: POST /api/normalize-drug
+    Flask->>Flask: Levenshtein fuzzy match<br/>(Indian brands)
+    Flask-->>Browser: Normalized generic names
+    
+    Browser->>Flask: GET /api/rxnorm/...
+    Flask->>RxNorm: Proxy request
+    RxNorm-->>Flask: RxCUI + ingredients
+    Flask-->>Browser: Drug metadata
+    
+    Browser->>Flask: POST /api/check-interactions
+    Flask->>PostgreSQL: SELECT with trigram search<br/>(threshold 0.85)
+    PostgreSQL-->>Flask: Matching drug IDs
+    
+    Flask->>PostgreSQL: Query interactions table<br/>(Cartesian product)
+    PostgreSQL-->>Flask: Interaction rules
+    Flask-->>Browser: Risk categorization
+    
+    Browser->>User: Display results dashboard
+```
+
+### ETL Pipeline Architecture
+
+```mermaid
+flowchart TD
+    START(["Start ETL"]) --> SEED{"Seed Mode?"}
+    SEED -->|Yes| HARDCODE["Load INTERACTION_RULES<br/>from data.py"]
+    SEED -->|No| CHECKPOINT["Read etl_sync_state<br/>last_successful_skip"]
+    
+    HARDCODE --> UPSERT_SEED["Upsert seed data<br/>to PostgreSQL"]
+    UPSERT_SEED --> END(["End"])
+    
+    CHECKPOINT --> FETCH["Fetch batch from openFDA<br/>(skip + limit)"]
+    FETCH --> PARSE["Extract drug names<br/>and interaction text"]
+    PARSE --> LLM_ROUTE["LLM Router<br/>(Multi-Provider)"]
+    
+    LLM_ROUTE --> GROQ{"Groq API"}
+    GROQ -->|Success| STRUCTURE["Structured JSON"]
+    GROQ -->|Fail| CEREBRAS{"Cerebras API"}
+    CEREBRAS -->|Success| STRUCTURE
+    CEREBRAS -->|Fail| GEMINI{"Gemini API"}
+    GEMINI -->|Success| STRUCTURE
+    GEMINI -->|Fail| OPENROUTER{"OpenRouter API"}
+    OPENROUTER -->|Success| STRUCTURE
+    OPENROUTER -->|Fail| HF{"HuggingFace API"}
+    HF -->|Success| STRUCTURE
+    HF -->|Fail| ERROR["Log error & skip batch"]
+    
+    STRUCTURE --> UPSERT["Upsert drugs & interactions<br/>(idempotent)"]
+    UPSERT --> UPDATE_CHECKPOINT["Update etl_sync_state<br/>(atomic transaction)"]
+    UPDATE_CHECKPOINT --> MORE{"More batches?"}
+    MORE -->|Yes| FETCH
+    MORE -->|No| END
+    ERROR --> END
+    
+    style START fill:#4caf50,color:#fff
+    style END fill:#f44336,color:#fff
+    style STRUCTURE fill:#2196f3,color:#fff
+    style ERROR fill:#ff9800,color:#fff
+```
+
+### Prescription Image Analysis Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Flask
+    participant Gemini
+    
+    User->>Browser: Upload prescription image
+    Browser->>Browser: Client-side preprocessing<br/>(resize, compress)
+    Browser->>Flask: POST /api/extract-vision<br/>(multipart/form-data)
+    Flask->>Gemini: Vision API request<br/>(Gemini 2.5 Flash)
+    Gemini->>Gemini: Clinical OCR<br/>(Indian shorthand aware)
+    Gemini-->>Flask: Extracted text
+    Flask-->>Browser: Drug names + dosages
+    
+    Browser->>Browser: Parse multi-line text<br/>(group broken OCR)
+    Browser->>Browser: Extract vitamins<br/>(A, C, D, E, K)
+    Browser->>Browser: Normalize compounds<br/>(Omega 3, D3)
+    Browser->>User: Populate drug input fields
+```
+
+### Database Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    DRUGS ||--o{ INTERACTIONS : "drug_a_id"
+    DRUGS ||--o{ INTERACTIONS : "drug_b_id"
+    
+    DRUGS {
+        bigserial id PK
+        citext generic_name UK
+        jsonb brand_names
+    }
+    
+    INTERACTIONS {
+        bigint drug_a_id FK
+        bigint drug_b_id FK
+        text severity
+        text description
+        text action_text
+        text source
+    }
+    
+    ETL_SYNC_STATE {
+        int id PK
+        int last_successful_skip
+        timestamptz updated_at
+    }
+```
+
+### LLM Router Failover Strategy
+
+```mermaid
+stateDiagram-v2
+    [*] --> Groq: Primary
+    Groq --> Success: 200 OK
+    Groq --> Cerebras: 429/Quota
+    
+    Cerebras --> Success: 200 OK
+    Cerebras --> Gemini: 429/Quota
+    
+    Gemini --> Success: 200 OK
+    Gemini --> OpenRouter: 429/Quota
+    
+    OpenRouter --> Success: 200 OK
+    OpenRouter --> HuggingFace: 429/Quota
+    
+    HuggingFace --> Success: 200 OK
+    HuggingFace --> Failure: All providers exhausted
+    
+    Success --> [*]
+    Failure --> [*]
+    
+    note right of Groq
+        llama-3.3-70b-versatile
+        Fastest, best for JSON
+    end note
+    
+    note right of Cerebras
+        gpt-oss-120b
+        High throughput
+    end note
+    
+    note right of Gemini
+        gemini-2.5-flash
+        Low latency
+    end note
+```
+
+### Security & Data Flow
+
+```mermaid
+graph LR
+    subgraph Public["🌍 Public Zone"]
+        USER["User Browser"]
+    end
+    
+    subgraph DMZ["🛡️ Application Zone"]
+        FLASK["Flask API<br/>(Port 5000)"]
+        PROXY["RxNorm Proxy<br/>(No API key exposure)"]
+    end
+    
+    subgraph Secure["🔒 Secure Zone"]
+        DB[("PostgreSQL<br/>(Connection Pool)")]
+        RULES["Interaction Rules<br/>(Server-side only)"]]
+    end
+    
+    subgraph External["☁️ External Services"]
+        RXNORM_API["RxNorm API"]
+        GEMINI_API["Gemini API"]
+        FDA_API["openFDA API"]
+    end
+    
+    USER -->|"HTTPS"| FLASK
+    FLASK -->|"Proxy"| PROXY
+    PROXY -->|"API Key Hidden"| RXNORM_API
+    FLASK -->|"Encrypted"| DB
+    FLASK -->|"Load Rules"| RULES
+    FLASK -->|"API Key Hidden"| GEMINI_API
+    FLASK -->|"Public API"| FDA_API
+    
+    USER -.->|"❌ Never Exposed"| RULES
+    USER -.->|"❌ Never Exposed"| DB
+    
+    style Public fill:#ffebee
+    style DMZ fill:#fff3e0
+    style Secure fill:#e8f5e9
+    style External fill:#e3f2fd
+```
 
 ---
 
@@ -124,6 +390,7 @@ CREATE TABLE etl_sync_state (
 - **PostgreSQL 12+** with `pg_trgm` and `citext` extensions
 - **pip** package manager
 - **At least one LLM API key** (Groq, Cerebras, Gemini, OpenRouter, or HuggingFace)
+- **Google Gemini API key** (for prescription image analysis)
 
 ### Installation
 
@@ -209,7 +476,7 @@ rxcheck/
 ├── templates/
 │   └── index.html        # SPA shell with disclaimer modal
 ├── static/
-│   ├── app.js            # Client-side logic (OCR, UI, API calls)
+│   ├── app.js            # Client-side logic (image analysis, UI, API calls)
 │   └── styles.css        # Design system with emergency warning styles
 └── README.md             # This file
 ```
@@ -248,16 +515,16 @@ Checkpoint Read → FDA API Fetch → Text Extraction → LLM Parsing → Postgr
 - Multi-provider LLM failover (automatic quota/rate-limit handling)
 - Crash recovery (resumes from last successful batch)
 
-### 4. **OCR Processing**
+### 4. **Prescription Image Analysis**
 ```
-Photo Upload → Image Preprocessing → Tesseract.js → Text Extraction → Drug Name Parsing
+Photo Upload → Gemini Vision API → Text Extraction → Drug Name Parsing
 ```
 
-**Preprocessing pipeline:**
-- Grayscale conversion with luminance formula
-- Binary thresholding (threshold=140)
-- 2× upscaling for small images
-- Indian prescription shorthand extraction
+**Processing pipeline:**
+- Client-side image upload to `/api/extract-vision`
+- Gemini 2.5 Flash vision model for clinical OCR
+- Automatic drug name extraction with confidence scoring
+- Indian prescription shorthand recognition
 
 ### 5. **Results Dashboard**
 - **Risk Grid**: Safe / Caution / Dangerous counters
@@ -278,7 +545,7 @@ Photo Upload → Image Preprocessing → Tesseract.js → Text Extraction → Dr
 ### ETL & AI
 - **Groq** — Primary LLM provider (llama-3.3-70b-versatile)
 - **Cerebras** — Fallback LLM (gpt-oss-120b)
-- **Google Gemini** — Fallback LLM (gemini-2.5-flash)
+- **Google Gemini** — Fallback LLM (gemini-2.5-flash) + Vision API
 - **OpenRouter** — Free tier fallback
 - **HuggingFace** — Final fallback (Meta-Llama-3-8B)
 
@@ -289,9 +556,9 @@ Photo Upload → Image Preprocessing → Tesseract.js → Text Extraction → Dr
 
 ### Frontend
 - **Vanilla JavaScript** — No framework overhead
-- **Tesseract.js 5.x** — Pure JavaScript OCR engine
+- **Gemini Vision API** — Cloud-based prescription image analysis
 - **Custom CSS** — Design system with CSS variables
-- **Google Fonts** — DM Sans & Source Sans 3
+- **Google Fonts** — Syne, IBM Plex Mono, IBM Plex Sans
 
 ---
 
@@ -372,6 +639,22 @@ Query PostgreSQL for interactions between resolved drugs.
       "source": "Internal Clinical Rules Engine"
     }
   ]
+}
+```
+
+### `POST /api/extract-vision`
+Send a prescription image to Gemini Vision for clinical OCR.
+
+**Request:**
+```
+multipart/form-data
+- image: <binary image file>
+```
+
+**Response:**
+```json
+{
+  "text": "Ecosprin 75mg\nCombiflam\nMetformin 500mg SR"
 }
 ```
 
@@ -526,7 +809,7 @@ This application:
 ### User Privacy
 - No user accounts or authentication
 - No prescription data storage
-- Client-side OCR processing
+- Client-side image upload (processed server-side)
 - LocalStorage only for disclaimer acceptance
 
 ---
@@ -544,7 +827,7 @@ Contributions are welcome! Please follow these guidelines:
 ### Areas for Contribution
 - Additional interaction rules with clinical references
 - More Indian brand-to-generic mappings
-- OCR accuracy improvements for handwritten prescriptions
+- Prescription image analysis accuracy improvements
 - Internationalization (Hindi, Tamil, Bengali)
 - Database migration scripts
 - Additional LLM providers in router
@@ -561,9 +844,9 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 - **National Library of Medicine** — RxNorm and RxNav APIs
 - **U.S. FDA** — openFDA drug label database
-- **Tesseract.js** — Open-source OCR engine
+- **Google Gemini** — Vision API for prescription image analysis
 - **PostgreSQL** — Advanced open-source database
-- **Google Fonts** — DM Sans and Source Sans 3 typefaces
+- **Google Fonts** — Syne, IBM Plex Mono, IBM Plex Sans typefaces
 - **PMBJP (Jan Aushadhi)** — Generic medicine pricing data
 - **Groq, Cerebras, Google, OpenRouter, HuggingFace** — LLM API providers
 
