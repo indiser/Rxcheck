@@ -1,6 +1,10 @@
 "use strict";
 
-const RXNORM_BASE = "https://rxnav.nlm.nih.gov/REST";
+// ---------------------------------------------------------------------------
+// All RxNorm API calls are routed through the Flask proxy.
+// The browser never contacts rxnav.nlm.nih.gov directly.
+// ---------------------------------------------------------------------------
+const RXNORM_BASE = "/api/rxnorm";
 
 const state = {
   mode: "manual",
@@ -11,6 +15,12 @@ const state = {
   lastResolved: [],
   lastSummary: null,
   checkController: null,
+  // Populated by loadLocalData() on startup — replaces the old data.js globals.
+  catalog: {
+    brand_hints: {},
+    price_catalog: {},
+    brand_savings_lookup: [],
+  },
 };
 
 const dom = {
@@ -130,9 +140,32 @@ if (!localStorage.getItem("rxcheck_disclaimer_accepted")) {
   dom.disclaimerModal.showModal();
 }
 dom.acceptDisclaimerBtn.addEventListener("click", () => {
-  localStorage.setItem("rxcheck_disclaimer_accepted", "true");
+  try { localStorage.setItem("rxcheck_disclaimer_accepted", "true"); } catch(e) { console.warn("localStorage unavailable", e); }
   dom.disclaimerModal.close();
 });
+
+// ---------------------------------------------------------------------------
+// Catalog bootstrap — fetch safe display data from the Flask backend once.
+// Replaces the former data.js globals (BRAND_HINTS, PRICE_CATALOG,
+// BRAND_SAVINGS_LOOKUP). INTERACTION_RULES are never sent to the client.
+// ---------------------------------------------------------------------------
+async function loadLocalData() {
+  try {
+    const res = await fetch("/api/local-data");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.catalog = await res.json();
+    // Re-render the Save Money table now that data is available.
+    renderSaveMoneyTable(state.selectedDrugs);
+  } catch (err) {
+    console.warn("Could not load catalog from server — display data may be incomplete.", err);
+  }
+}
+
+loadLocalData();
+
+// ---------------------------------------------------------------------------
+// Mode / input management
+// ---------------------------------------------------------------------------
 
 function setMode(mode) {
   state.mode = mode;
@@ -211,38 +244,38 @@ async function preprocessImageForOCR(file) {
     img.onload = () => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      
+
       // Scale up small images for better OCR
       let scale = 1;
       if (img.width < 1000 || img.height < 1000) {
         scale = 2;
       }
-      
+
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      
+
       // Draw and scale
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
+
       // Grayscale & Thresholding (Contrast)
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
-      
+
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-        
+
         // Grayscale (Luminance)
         const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        
+
         // Simple contrast/threshold
         const threshold = 140; // Tuned for typical prescription photos
         const v = gray > threshold ? 255 : 0;
-        
+
         data[i] = data[i + 1] = data[i + 2] = v;
       }
-      
+
       ctx.putImageData(imageData, 0, 0);
       resolve(canvas.toDataURL("image/png"));
     };
@@ -256,7 +289,7 @@ async function runOCR(file) {
   try {
     const processedUrl = await preprocessImageForOCR(file);
     dom.photoStatus.textContent = "OCR: processing...";
-    
+
     const worker = await Tesseract.createWorker("eng", 1, {
       logger: (info) => {
         if (info.status === "recognizing text") {
@@ -267,17 +300,16 @@ async function runOCR(file) {
     });
     const { data } = await worker.recognize(processedUrl);
     await worker.terminate();
-    URL.revokeObjectURL(processedUrl); // Clean up if it was a blob URL, but it's data URI so this is a no-op but safe.
 
     const text = (data.text || "").trim();
     const confidence = data.confidence || 0;
-    
+
     if (text) {
       dom.chatgptText.value = text;
       dom.photoStatus.textContent = "OCR complete";
       applyExtractedText(text);
-      dom.extractBtn.click();
-      
+      setTimeout(() => dom.extractBtn.click(), 300);
+
       if (confidence < 60) {
         showBanner("Low OCR confidence. Verify medicine names manually.");
       }
@@ -302,6 +334,63 @@ function updateExtractionStatus(count, hasText) {
   } and filled the drug list.`;
 }
 
+// ---------------------------------------------------------------------------
+// Prescription text parsing (client-side — needed synchronously for OCR flow)
+// PRESCRIPTION_STOP_WORDS stays here; it is not business-sensitive data and
+// must be available before any network call is made.
+// ---------------------------------------------------------------------------
+
+const PRESCRIPTION_STOP_WORDS = new Set([
+  "a",
+  "after",
+  "alternate",
+  "before",
+  "bd",
+  "bf",
+  "bid",
+  "cap",
+  "caps",
+  "capsule",
+  "cream",
+  "daily",
+  "days",
+  "dose",
+  "drops",
+  "for",
+  "gel",
+  "hs",
+  "inhaler",
+  "inj",
+  "injection",
+  "mane",
+  "mg",
+  "ml",
+  "nocte",
+  "od",
+  "once",
+  "oint",
+  "oral",
+  "pc",
+  "po",
+  "powder",
+  "puff",
+  "qid",
+  "sachet",
+  "soln",
+  "solution",
+  "sos",
+  "stat",
+  "susp",
+  "syp",
+  "tab",
+  "tablet",
+  "tds",
+  "tid",
+  "twice",
+  "with",
+  "x",
+]);
+
 function parseManualInput(value) {
   const candidates = [];
   value.split(/[\n,+;]+/).forEach((item) => {
@@ -314,19 +403,17 @@ function parseManualInput(value) {
 function extractPrescriptionDrugs(value) {
   const candidates = [];
   let hasLowConfidence = false;
-  
-  // 1. Insert spaces between letters and numbers (e.g., Telmisartan40mg -> Telmisartan 40mg)
+
+  // 1. Insert spaces between letters and numbers
   let text = value.replace(/([a-zA-Z])(\d)/g, "$1 $2");
-  
+
   // 2. Line grouping for broken OCR
   let rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   let groupedLines = [];
-  
+
   for (let line of rawLines) {
     if (groupedLines.length > 0) {
       const prev = groupedLines[groupedLines.length - 1];
-      // Merge if current line starts with a number, or is a common continuation (dosage/shorthand),
-      // or if previous line ended with a continuation character
       if (/^\d/.test(line) || /^(mg|mcg|g|ml|bd|od|tds|sos)\b/i.test(line) || /[+\-&]$/.test(prev)) {
         groupedLines[groupedLines.length - 1] += " " + line;
         continue;
@@ -335,7 +422,7 @@ function extractPrescriptionDrugs(value) {
     groupedLines.push(line);
   }
 
-  // 3. Safe segment splitting using word boundaries
+  // 3. Safe segment splitting
   groupedLines.forEach(line => {
     line.split(/\.|\band\b|\+|&/i)
       .map(seg => seg.trim())
@@ -350,11 +437,11 @@ function extractPrescriptionDrugs(value) {
         }
       });
   });
-  
+
   if (hasLowConfidence && candidates.length > 0) {
     showBanner("Some medicine names may need manual correction.");
   }
-  
+
   return uniqueDrugs(candidates);
 }
 
@@ -366,7 +453,7 @@ function cleanPrescriptionLine(line) {
     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
     .replace(/\b\d+\b/g, " ")
-    .replace(/[^\w\s-]/g, " ") // keep hyphens
+    .replace(/[^\w\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -383,14 +470,14 @@ function cleanPrescriptionLine(line) {
     hs: "At bedtime",
     mane: "In the morning",
     nocte: "At night",
-    stat: "Immediately"
+    stat: "Immediately",
   };
   const rawWords = normalized.split(/\s+/);
   for (const w of rawWords) {
     const lw = w.toLowerCase().replace(/[^\w]/g, "");
     if (shorthandMap[lw]) {
       shorthand = shorthandMap[lw];
-      break; // Just take the first valid frequency
+      break;
     }
   }
 
@@ -404,21 +491,23 @@ function cleanPrescriptionLine(line) {
 
   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
 
-  // Exact brand match
-  const knownBrand = words.find((word) => BRAND_HINTS[word.toLowerCase()]);
+  // Exact brand match against locally cached catalog hints
+  const hints = state.catalog.brand_hints || {};
+  const knownBrand = words.find((word) => hints[word.toLowerCase()]);
   if (knownBrand) {
     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
   }
-  
-  // Fuzzy brand / generic match
+
+  // Fuzzy brand / generic match against catalog
+  const catalog = state.catalog.price_catalog || {};
   const match = words.find(w => {
-     const lw = w.toLowerCase();
-     return BRAND_HINTS[lw] || PRICE_CATALOG[lw] || 
-       Object.values(BRAND_HINTS).some(v => v.includes(lw));
+    const lw = w.toLowerCase();
+    return hints[lw] || catalog[lw] ||
+      Object.values(hints).some(v => v.includes(lw));
   });
   if (match) {
     const lw = match.toLowerCase();
-    const resolved = BRAND_HINTS[lw] || match;
+    const resolved = hints[lw] || match;
     return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
   }
 
@@ -482,6 +571,10 @@ function syncActiveInput() {
   dom.manualInput.value = state.selectedDrugs.join(", ");
 }
 
+// ---------------------------------------------------------------------------
+// Core check flow
+// ---------------------------------------------------------------------------
+
 async function runCheck() {
   if (state.checkController) {
     state.checkController.abort();
@@ -522,14 +615,11 @@ async function runCheck() {
       return;
     }
 
-    const onlineInteractions = await fetchOnlineInteractions(resolved, signal);
+    const findings = await evaluateLocalInteractions(resolved, signal);
     if (signal.aborted) return;
-    
-    const localFindings = evaluateLocalInteractions(resolved);
-    const findings = mergeFindings(onlineInteractions.findings, localFindings);
-    const summary = summarizeFindings(findings, resolved.length);
 
-    renderDashboard(summary, findings, resolved, onlineInteractions);
+    const summary = summarizeFindings(findings, resolved.length);
+    renderDashboard(summary, findings, resolved);
   } catch (error) {
     if (error.name === "AbortError") return;
     console.error(error);
@@ -542,9 +632,37 @@ async function runCheck() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Drug resolution — server-side normalisation + RxNorm proxy lookups
+// ---------------------------------------------------------------------------
+
+/**
+ * Send raw drug name to the Flask /api/normalize-drug endpoint.
+ * The server runs Levenshtein brand→generic matching and returns the
+ * normalized generic name plus any matching catalog entry.
+ *
+ * Falls back gracefully if the endpoint is unreachable.
+ */
+async function normalizeDrug(rawName) {
+  try {
+    const res = await fetch("/api/normalize-drug", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: rawName }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json(); // { normalized: string, catalog: object|null }
+  } catch (err) {
+    console.warn("normalizeDrug failed, using raw name as fallback", err);
+    return { normalized: rawName.toLowerCase().trim(), catalog: null };
+  }
+}
+
 async function resolveDrug(rawName, signal) {
-  const mappedName = mapBrandHint(rawName);
-  const catalogMatch = findCatalogEntry(`${rawName} ${mappedName}`);
+  // 1. Server-side brand→generic normalisation (replaces client-side Levenshtein)
+  const { normalized: mappedName, catalog: serverCatalog } = await normalizeDrug(rawName);
+  const catalogMatch = serverCatalog || findCatalogEntry(`${rawName} ${mappedName}`);
+
   const fallback = {
     rawName,
     queryName: mappedName,
@@ -598,58 +716,9 @@ async function resolveDrug(rawName, signal) {
   }
 }
 
-function levenshteinDistance(a, b) {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-  
-  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
-  
-  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-  
-  for (let j = 1; j <= b.length; j++) {
-    for (let i = 1; i <= a.length; i++) {
-      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1, // insertion
-        matrix[j - 1][i] + 1, // deletion
-        matrix[j - 1][i - 1] + indicator // substitution
-      );
-    }
-  }
-  return matrix[b.length][a.length];
-}
-
-function mapBrandHint(name) {
-  const cleaned = cleanDrugText(name).toLowerCase();
-  const first = cleaned.split(/\s+/)[0];
-  
-  if (BRAND_HINTS[cleaned]) return BRAND_HINTS[cleaned];
-  if (BRAND_HINTS[first]) return BRAND_HINTS[first];
-  
-  const catalogKeys = Object.keys(PRICE_CATALOG);
-  const hintKeys = Object.keys(BRAND_HINTS);
-  
-  let minDistance = Infinity;
-  let bestMatch = cleaned;
-  
-  for (const key of [...hintKeys, ...catalogKeys]) {
-    const d1 = levenshteinDistance(cleaned, key);
-    const d2 = levenshteinDistance(first, key);
-    const d = Math.min(d1, d2);
-    
-    // Strict threshold: Max distance 2, and the word must be at least 6 chars long to allow distance 2.
-    // Distance 1 allowed for 4+ chars.
-    const threshold = key.length > 5 ? 2 : key.length >= 4 ? 1 : 0;
-    
-    if (d <= threshold && d < minDistance) {
-      minDistance = d;
-      bestMatch = BRAND_HINTS[key] || key; 
-    }
-  }
-  
-  return bestMatch;
-}
+// ---------------------------------------------------------------------------
+// RxNorm proxy calls — all routed through /api/rxnorm (Flask backend)
+// ---------------------------------------------------------------------------
 
 async function findRxcui(name, signal) {
   const normalizedUrl = `${RXNORM_BASE}/rxcui.json?name=${encodeURIComponent(name)}&search=2`;
@@ -684,67 +753,27 @@ async function getRelatedByType(rxcui, tty, signal) {
   return groups.flatMap((group) => group.conceptProperties || []);
 }
 
-async function fetchOnlineInteractions(resolved, signal) {
-  const rxcuis = resolved.map((drug) => drug.rxcui).filter(Boolean);
-  if (rxcuis.length < 2) {
-    return {
-      status: "skipped",
-      message: "Not enough RxCUIs were resolved for the live interaction route.",
-      findings: [],
-    };
-  }
-
-  const url = `${RXNORM_BASE}/interaction/list.json?rxcuis=${rxcuis.join("+")}`;
-
+/**
+ * Evaluate server-side INTERACTION_RULES against the resolved drug list.
+ * Calls POST /api/check-interactions — rules never leave the server.
+ * The deprecated NIH /interaction/list.json endpoint is not used.
+ */
+async function evaluateLocalInteractions(resolved, signal) {
   try {
-    const data = await getJson(url, 6500, 2, signal);
-    const findings = parseOnlineInteractions(data);
-    return {
-      status: findings.length ? "online" : "empty",
-      message: findings.length
-        ? "RxNav live interaction response plus local rules."
-        : "RxNav live interaction route returned no usable findings; local rules used.",
-      findings,
-    };
-  } catch (error) {
-    if (error.name !== "AbortError") {
-      console.info("Live interaction endpoint unavailable", error);
-    }
-    return {
-      status: "unavailable",
-      message: "Live interaction service unavailable. Using local safety rules.",
-      findings: [],
-    };
-  }
-}
-
-function parseOnlineInteractions(data) {
-  const groups = data?.fullInteractionTypeGroup || [];
-  const findings = [];
-
-  groups.forEach((group) => {
-    (group.fullInteractionType || []).forEach((type) => {
-      (type.interactionPair || []).forEach((pair) => {
-        const names = (pair.interactionConcept || [])
-          .map((concept) => concept.minConceptItem?.name)
-          .filter(Boolean);
-        if (names.length < 2) {
-          return;
-        }
-
-        const level = normalizeSeverity(pair.severity || pair.sourceDisclaimer);
-        findings.push({
-          level,
-          pair: names.slice(0, 2),
-          message: pair.description || "Interaction listed by RxNav response.",
-          action: level === "high" ? "Review urgently with a clinician." : "Monitor and confirm clinical intent.",
-          source: "RxNav",
-        });
-      });
+    const res = await fetch("/api/check-interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolved }),
+      signal,
     });
-  });
-
-  return findings;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.findings || [];
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    console.warn("Local interaction check failed", err);
+    return [];
+  }
 }
 
 function normalizeSeverity(value = "") {
@@ -756,32 +785,6 @@ function normalizeSeverity(value = "") {
     return "medium";
   }
   return "medium";
-}
-
-function evaluateLocalInteractions(resolved) {
-  const findings = [];
-
-  for (let i = 0; i < resolved.length; i += 1) {
-    for (let j = i + 1; j < resolved.length; j += 1) {
-      const left = resolved[i];
-      const right = resolved[j];
-      INTERACTION_RULES.forEach((rule) => {
-        const forward = matchesAny(left, rule.a) && matchesAny(right, rule.b);
-        const reverse = matchesAny(left, rule.b) && matchesAny(right, rule.a);
-        if (forward || reverse) {
-          findings.push({
-            level: rule.level,
-            pair: [left.rawName, right.rawName],
-            message: rule.message,
-            action: rule.action,
-            source: "Local safety rules",
-          });
-        }
-      });
-    }
-  }
-
-  return findings;
 }
 
 function matchesAny(drug, terms) {
@@ -802,22 +805,7 @@ function matchesAny(drug, terms) {
   });
 }
 
-function mergeFindings(online, local) {
-  const map = new Map();
-  [...online, ...local].forEach((finding) => {
-    const pairKey = finding.pair.map((name) => name.toLowerCase()).sort().join("|");
-    const key = `${pairKey}|${finding.message.toLowerCase()}`;
-    if (map.has(key)) {
-      const existing = map.get(key);
-      if (existing.source !== finding.source) {
-        existing.source = "Both";
-      }
-    } else {
-      map.set(key, { ...finding });
-    }
-  });
-  return Array.from(map.values());
-}
+
 
 function summarizeFindings(findings, drugCount) {
   const high = findings.filter((item) => item.level === "high").length;
@@ -826,7 +814,11 @@ function summarizeFindings(findings, drugCount) {
   return { high, medium, low };
 }
 
-function renderDashboard(summary, findings, resolved, onlineInteractions) {
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function renderDashboard(summary, findings, resolved) {
   dom.greenCount.textContent = summary.low;
   dom.yellowCount.textContent = summary.medium;
   dom.redCount.textContent = summary.high;
@@ -844,12 +836,8 @@ function renderDashboard(summary, findings, resolved, onlineInteractions) {
         ? "⚠ Caution signals detected"
         : "✓ No known dangerous interactions";
 
-  dom.interactionSource.textContent = onlineInteractions.message;
-  if (onlineInteractions.status === "unavailable") {
-    showBanner(onlineInteractions.message);
-  } else {
-    hideBanner();
-  }
+  dom.interactionSource.textContent = "Internal Clinical Rules Engine";
+  hideBanner();
 
   renderInteractionResults(findings, resolved);
   renderDrugCards(resolved);
@@ -905,8 +893,9 @@ function renderInteractionResults(findings, resolved) {
 }
 
 function renderSaveMoneyTable(selectedDrugs = state.selectedDrugs) {
+  const lookup = state.catalog.brand_savings_lookup || [];
   const selectedText = selectedDrugs.join(" ");
-  const rows = BRAND_SAVINGS_LOOKUP.map((item) => ({
+  const rows = lookup.map((item) => ({
     ...item,
     matched: matchesSavingsRow(item, selectedText),
   })).sort((a, b) => Number(b.matched) - Number(a.matched) || a.brand.localeCompare(b.brand));
@@ -975,7 +964,7 @@ function renderDrugCards(resolved) {
     const card = document.createElement("article");
     card.className = "drug-card";
     const ingredientText = drug.ingredients.length ? drug.ingredients.join(", ") : "Not found";
-    
+
     // Map confidence text to badge color
     const confLower = (drug.confidence || "").toLowerCase();
     let badgeClass = "low"; // default green
@@ -987,7 +976,7 @@ function renderDrugCards(resolved) {
       badgeClass = "medium"; // yellow
       confBadgeText = "Medium Confidence";
     }
-    
+
     card.innerHTML = `
       <div class="drug-topline">
         <div>
@@ -1016,6 +1005,10 @@ function renderDrugCards(resolved) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Catalog utilities — operate on state.catalog fetched from /api/local-data
+// ---------------------------------------------------------------------------
+
 function buildAlternativeList(genericName, catalog, rxName) {
   const list = [genericName];
   if (catalog?.alternatives) {
@@ -1033,58 +1026,36 @@ function deriveIngredientName(rxName, fallback) {
   return cleaned || titleCase(fallback);
 }
 
+/**
+ * Search state.catalog.price_catalog for an entry whose key appears in `text`.
+ * Replaces the former global PRICE_CATALOG lookup.
+ */
 function findCatalogEntry(text) {
+  const catalog = state.catalog.price_catalog || {};
   const haystack = text.toLowerCase();
   const normalizedHaystack = haystack.replace("paracetamol", "acetaminophen");
-  const key = Object.keys(PRICE_CATALOG).find((item) => {
+  const key = Object.keys(catalog).find((item) => {
     const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(^|\\W)${escaped}(\\W|$)`, "i").test(normalizedHaystack);
   });
-  return key ? PRICE_CATALOG[key] : null;
+  return key ? catalog[key] : null;
 }
 
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function getCachedJson(url) {
-  try {
-    const cached = localStorage.getItem(url);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Date.now() - parsed.timestamp < CACHE_TTL) {
-        return parsed.data;
-      }
-      localStorage.removeItem(url); // Expired
-    }
-  } catch (err) {
-    console.warn("Cache read failed", err);
-  }
-  return null;
-}
-
-function cacheJson(url, data) {
-  try {
-    localStorage.setItem(url, JSON.stringify({
-      timestamp: Date.now(),
-      data: data
-    }));
-  } catch (err) {
-    console.warn("Cache write failed, possible quota exceeded", err);
-  }
-}
+// ---------------------------------------------------------------------------
+// HTTP utility — no localStorage caching layer.
+// Server-side caching will be added in a future iteration.
+// ---------------------------------------------------------------------------
 
 async function getJson(url, timeout = 9000, maxRetries = 2, externalSignal = null) {
-  const cached = getCachedJson(url);
-  if (cached) return cached;
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), timeout);
-    
+
     const abortHandler = () => controller.abort();
     if (externalSignal) {
       externalSignal.addEventListener("abort", abortHandler);
     }
-    
+
     try {
       if (externalSignal && externalSignal.aborted) throw new Error("Aborted");
       const response = await fetch(url, {
@@ -1094,9 +1065,7 @@ async function getJson(url, timeout = 9000, maxRetries = 2, externalSignal = nul
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const data = await response.json();
-      cacheJson(url, data);
-      return data;
+      return await response.json();
     } catch (err) {
       if ((err.name === "AbortError" || err.message === "Aborted") && externalSignal && externalSignal.aborted) {
         throw err;
@@ -1112,13 +1081,17 @@ async function getJson(url, timeout = 9000, maxRetries = 2, externalSignal = nul
   }
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard state management
+// ---------------------------------------------------------------------------
+
 function resetDashboard(message) {
   dom.dashboardTitle.textContent = "Awaiting a prescription";
   dom.apiState.textContent = "RxNorm not contacted yet";
   dom.greenCount.textContent = "0";
   dom.yellowCount.textContent = "0";
   dom.redCount.textContent = "0";
-  dom.interactionSource.textContent = "No check run";
+  dom.interactionSource.textContent = "Internal Clinical Rules Engine — no check run yet";
   dom.interactionResults.className = "result-list empty-state";
   dom.interactionResults.innerHTML = `<p>${escapeHtml(message)}</p>`;
   dom.drugResults.className = "drug-results empty-state";
@@ -1142,6 +1115,10 @@ function hideBanner() {
   dom.alertBanner.textContent = "";
   dom.alertBanner.classList.add("hidden");
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function riskWeight(level) {
   return { low: 1, medium: 2, high: 3 }[level] || 0;
@@ -1178,6 +1155,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// ---------------------------------------------------------------------------
+// Visit summary & sharing
+// ---------------------------------------------------------------------------
+
 function generateVisitSummary() {
   const drugs = state.selectedDrugs;
   if (!drugs.length) {
@@ -1198,7 +1179,8 @@ function generateVisitSummary() {
   }
 
   const selectedText = drugs.join(" ");
-  const matchedRows = BRAND_SAVINGS_LOOKUP.filter((item) => matchesSavingsRow(item, selectedText));
+  const lookup = state.catalog.brand_savings_lookup || [];
+  const matchedRows = lookup.filter((item) => matchesSavingsRow(item, selectedText));
   if (matchedRows.length) {
     const totalEstimate = matchedRows.reduce((sum, row) => {
       const match = row.mrp.match(/Rs\.\s*(\d+)/);
@@ -1210,7 +1192,7 @@ function generateVisitSummary() {
   }
 
   lines.push("");
-  lines.push("Generated by RxCheck — rxcheck.app");
+  lines.push("Generated by RxCheck — AI-powered medication safety checker");
   return lines.join("\n");
 }
 
@@ -1245,12 +1227,12 @@ async function shareWhatsApp() {
     return;
   }
   const summary = generateVisitSummary();
-  
+
   if (navigator.share) {
     try {
       await navigator.share({
-        title: 'RxCheck Summary',
-        text: summary
+        title: "RxCheck Summary",
+        text: summary,
       });
       return;
     } catch (err) {
