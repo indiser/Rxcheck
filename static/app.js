@@ -26,7 +26,7 @@ const state = {
 const dom = {
   manualInput: document.querySelector("#manual-input"),
   prescriptionInput: document.querySelector("#prescription-input"),
-  photoInput: document.querySelector("#prescription-photo"),
+  // photoInput: document.querySelector("#prescription-photo"),
   photoPreview: document.querySelector("#photo-preview"),
   photoPreviewImage: document.querySelector("#photo-preview-image"),
   photoStatus: document.querySelector("#photo-status"),
@@ -87,7 +87,7 @@ dom.prescriptionInput.addEventListener("input", debounce(() => {
   }
 }, 300));
 
-dom.photoInput.addEventListener("change", handlePhotoUpload);
+// dom.photoInput.addEventListener("change", handlePhotoUpload);
 dom.photoRemoveBtn.addEventListener("click", () => clearPhoto());
 
 dom.chatgptText.addEventListener("input", debounce(() => {
@@ -180,32 +180,32 @@ function setMode(mode) {
   setSelectedDrugs(mode === "paste" ? extractPrescriptionDrugs(source) : parseManualInput(source));
 }
 
-function handlePhotoUpload(event) {
-  const file = event.target.files?.[0];
+// function handlePhotoUpload(event) {
+//   const file = event.target.files?.[0];
 
-  if (!file) {
-    clearPhoto({ silent: true });
-    return;
-  }
+//   if (!file) {
+//     clearPhoto({ silent: true });
+//     return;
+//   }
 
-  if (!file.type.startsWith("image/")) {
-    dom.photoInput.value = "";
-    showBanner("Choose an image file of the prescription.");
-    return;
-  }
+//   if (!file.type.startsWith("image/")) {
+//     dom.photoInput.value = "";
+//     showBanner("Choose an image file of the prescription.");
+//     return;
+//   }
 
-  if (state.photoPreviewUrl) {
-    URL.revokeObjectURL(state.photoPreviewUrl);
-  }
+//   if (state.photoPreviewUrl) {
+//     URL.revokeObjectURL(state.photoPreviewUrl);
+//   }
 
-  state.photoPreviewUrl = URL.createObjectURL(file);
-  dom.photoPreviewImage.src = state.photoPreviewUrl;
-  dom.photoPreview.classList.add("has-image");
-  dom.photoStatus.textContent = file.name;
-  dom.photoRemoveBtn.disabled = false;
+//   state.photoPreviewUrl = URL.createObjectURL(file);
+//   dom.photoPreviewImage.src = state.photoPreviewUrl;
+//   dom.photoPreview.classList.add("has-image");
+//   dom.photoStatus.textContent = file.name;
+//   dom.photoRemoveBtn.disabled = false;
 
-  runOCR(file);
-}
+//   runOCR(file);
+// }
 
 function clearPhoto(options = {}) {
   if (state.photoPreviewUrl) {
@@ -238,90 +238,90 @@ function applyExtractedText(text) {
   updateExtractionStatus(drugs.length, Boolean(text.trim()));
 }
 
-async function preprocessImageForOCR(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
+// async function preprocessImageForOCR(file) {
+//   return new Promise((resolve, reject) => {
+//     const img = new Image();
+//     img.onload = () => {
+//       const canvas = document.createElement("canvas");
+//       const ctx = canvas.getContext("2d");
 
-      // Scale up small images for better OCR
-      let scale = 1;
-      if (img.width < 1000 || img.height < 1000) {
-        scale = 2;
-      }
+//       // Scale up small images for better OCR
+//       let scale = 1;
+//       if (img.width < 1000 || img.height < 1000) {
+//         scale = 2;
+//       }
 
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+//       canvas.width = img.width * scale;
+//       canvas.height = img.height * scale;
 
-      // Draw and scale
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+//       // Draw and scale
+//       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // Grayscale & Thresholding (Contrast)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
+//       // Grayscale & Thresholding (Contrast)
+//       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+//       const data = imageData.data;
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+//       for (let i = 0; i < data.length; i += 4) {
+//         const r = data[i];
+//         const g = data[i + 1];
+//         const b = data[i + 2];
 
-        // Grayscale (Luminance)
-        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+//         // Grayscale (Luminance)
+//         const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
-        // Simple contrast/threshold
-        const threshold = 140; // Tuned for typical prescription photos
-        const v = gray > threshold ? 255 : 0;
+//         // Simple contrast/threshold
+//         const threshold = 140; // Tuned for typical prescription photos
+//         const v = gray > threshold ? 255 : 0;
 
-        data[i] = data[i + 1] = data[i + 2] = v;
-      }
+//         data[i] = data[i + 1] = data[i + 2] = v;
+//       }
 
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror = () => reject(new Error("Image load failed"));
-    img.src = URL.createObjectURL(file);
-  });
-}
+//       ctx.putImageData(imageData, 0, 0);
+//       resolve(canvas.toDataURL("image/png"));
+//     };
+//     img.onerror = () => reject(new Error("Image load failed"));
+//     img.src = URL.createObjectURL(file);
+//   });
+// }
 
-async function runOCR(file) {
-  dom.photoStatus.textContent = "OCR: initializing...";
-  try {
-    const processedUrl = await preprocessImageForOCR(file);
-    dom.photoStatus.textContent = "OCR: processing...";
+// async function runOCR(file) {
+//   dom.photoStatus.textContent = "OCR: initializing...";
+//   try {
+//     const processedUrl = await preprocessImageForOCR(file);
+//     dom.photoStatus.textContent = "OCR: processing...";
 
-    const worker = await Tesseract.createWorker("eng", 1, {
-      logger: (info) => {
-        if (info.status === "recognizing text") {
-          const pct = Math.round((info.progress || 0) * 100);
-          dom.photoStatus.textContent = `OCR: ${pct}%`;
-        }
-      },
-    });
-    const { data } = await worker.recognize(processedUrl);
-    await worker.terminate();
+//     const worker = await Tesseract.createWorker("eng", 1, {
+//       logger: (info) => {
+//         if (info.status === "recognizing text") {
+//           const pct = Math.round((info.progress || 0) * 100);
+//           dom.photoStatus.textContent = `OCR: ${pct}%`;
+//         }
+//       },
+//     });
+//     const { data } = await worker.recognize(processedUrl);
+//     await worker.terminate();
 
-    const text = (data.text || "").trim();
-    const confidence = data.confidence || 0;
+//     const text = (data.text || "").trim();
+//     const confidence = data.confidence || 0;
 
-    if (text) {
-      dom.chatgptText.value = text;
-      dom.photoStatus.textContent = "OCR complete";
-      applyExtractedText(text);
-      setTimeout(() => dom.extractBtn.click(), 300);
+//     if (text) {
+//       dom.chatgptText.value = text;
+//       dom.photoStatus.textContent = "OCR complete";
+//       applyExtractedText(text);
+//       setTimeout(() => dom.extractBtn.click(), 300);
 
-      if (confidence < 60) {
-        showBanner("Low OCR confidence. Verify medicine names manually.");
-      }
-    } else {
-      dom.photoStatus.textContent = "OCR: no text found";
-    }
-  } catch (err) {
-    console.error("OCR failed", err);
-    dom.photoStatus.textContent = "OCR failed";
-    showBanner("Automatic text extraction failed. Paste the text manually.");
-  }
-}
+//       if (confidence < 60) {
+//         showBanner("Low OCR confidence. Verify medicine names manually.");
+//       }
+//     } else {
+//       dom.photoStatus.textContent = "OCR: no text found";
+//     }
+//   } catch (err) {
+//     console.error("OCR failed", err);
+//     dom.photoStatus.textContent = "OCR failed";
+//     showBanner("Automatic text extraction failed. Paste the text manually.");
+//   }
+// }
 
 function updateExtractionStatus(count, hasText) {
   if (!hasText) {
@@ -1306,3 +1306,154 @@ async function shareWhatsApp() {
   const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
+
+// document.getElementById('prescription-photo').addEventListener('change', async (e) => {
+//   const file = e.target.files[0];
+//   if (!file) return;
+
+//   // 1. Respect the CSS State Architecture
+//   const previewContainer = document.querySelector('.photo-preview');
+//   const previewImg = previewContainer ? previewContainer.querySelector('img') : null;
+
+//   if (previewContainer && previewImg) {
+//     // Set the image source
+//     previewImg.src = URL.createObjectURL(file);
+//     // Unlock the CSS rules by adding the state class
+//     previewContainer.classList.add('has-image');
+//   } else {
+//     console.warn("UI Warning: .photo-preview container or img tag not found.");
+//   }
+
+//   // 2. Status and Field targeting
+//   const statusEl = document.getElementById('extraction-status') || document.querySelector('.photo-status');
+//   const textArea = document.getElementById('chatgpt-text') || document.querySelector('textarea');
+  
+//   if (!textArea) {
+//     console.error("Fatal Error: Target extraction textarea is missing.");
+//     return;
+//   }
+
+//   // 3. Set Loading UI State
+//   if (statusEl) {
+//     statusEl.textContent = "Analyzing handwriting with Gemini...";
+//     statusEl.style.color = "var(--blue)";
+//   }
+//   textArea.value = "";
+
+//   // 4. Execute Multi-part Payload Request
+//   const formData = new FormData();
+//   formData.append('image', file);
+
+//   try {
+//     const res = await fetch('/api/extract-vision', {
+//       method: 'POST',
+//       body: formData
+//     });
+    
+//     if (!res.ok) {
+//       const errorData = await res.json();
+//       throw new Error(errorData.error || `Server responded with HTTP ${res.status}`);
+//     }
+    
+//     const data = await res.json();
+    
+//     // Pipe structured extraction response back into the textarea
+//     textArea.value = data.text;
+    
+//     if (statusEl) {
+//       statusEl.textContent = "Extraction complete. Click 'Extract names'.";
+//       statusEl.style.color = "var(--green)";
+//     }
+    
+//     // Alert downstream input validation loops
+//     textArea.dispatchEvent(new Event('input', { bubbles: true }));
+
+//   } catch (err) {
+//     console.error("Vision Processing Exception:", err);
+//     if (statusEl) {
+//       statusEl.textContent = "Extraction failed: " + err.message;
+//       statusEl.style.color = "var(--red)";
+//     }
+//   }
+// });
+
+document.getElementById('prescription-photo').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Element Selection
+  const fileStatusBadge = document.getElementById('photo-status') || document.querySelector('.photo-status');
+  const extractionStatusEl = document.getElementById('extraction-status');
+  const textArea = document.getElementById('chatgpt-text') || document.querySelector('textarea');
+  const previewContainer = document.querySelector('.photo-preview');
+  const previewImg = previewContainer ? previewContainer.querySelector('img') : null;
+
+  if (!textArea) {
+    console.error("Fatal Error: Target extraction textarea is missing.");
+    return;
+  }
+
+  // Phase 1: Processing State (Blue)
+  if (fileStatusBadge) {
+    fileStatusBadge.textContent = "Processing...";
+    fileStatusBadge.style.background = "var(--blue-soft)";
+    fileStatusBadge.style.color = "var(--blue-dark)";
+  }
+  if (extractionStatusEl) {
+    extractionStatusEl.textContent = "Analyzing handwriting with Gemini...";
+    extractionStatusEl.style.color = "var(--blue)";
+  }
+  textArea.value = "";
+
+  // Render Image Preview
+  if (previewContainer && previewImg) {
+    previewImg.src = URL.createObjectURL(file);
+    previewContainer.classList.add('has-image');
+  }
+
+  // Execute Network Payload
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('/api/extract-vision', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || `Server responded with HTTP ${res.status}`);
+    }
+    
+    const data = await res.json();
+    textArea.value = data.text;
+    
+    // Phase 2: Success State (Green)
+    if (fileStatusBadge) {
+      fileStatusBadge.textContent = "Processed";
+      fileStatusBadge.style.background = "var(--green-soft)";
+      fileStatusBadge.style.color = "var(--green-dark)";
+    }
+    if (extractionStatusEl) {
+      extractionStatusEl.textContent = "Extraction complete. Click 'Extract names'.";
+      extractionStatusEl.style.color = "var(--green)";
+    }
+    
+    textArea.dispatchEvent(new Event('input', { bubbles: true }));
+
+  } catch (err) {
+    console.error("Vision Processing Exception:", err);
+    
+    // Phase 3: Error State (Red)
+    if (fileStatusBadge) {
+      fileStatusBadge.textContent = "Failed";
+      fileStatusBadge.style.background = "var(--red-soft)";
+      fileStatusBadge.style.color = "var(--red-dark)";
+    }
+    if (extractionStatusEl) {
+      extractionStatusEl.textContent = "Extraction failed: " + err.message;
+      extractionStatusEl.style.color = "var(--red)";
+    }
+  }
+});

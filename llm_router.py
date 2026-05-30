@@ -21,6 +21,9 @@ except ImportError: genai = None
 try: from huggingface_hub import InferenceClient
 except ImportError: InferenceClient = None
 
+import io
+try: import PIL.Image
+except ImportError: PIL = None
 load_dotenv()
 
 # =========================
@@ -161,3 +164,38 @@ def extract_clinical_data(system_prompt: str, user_prompt: str) -> str:
                 continue
 
     raise RuntimeError(f"CRITICAL: All LLM providers failed. Last error: {last_error}")
+
+def extract_text_from_image(image_bytes: bytes) -> str:
+    """
+    Passes raw image bytes to Gemini 2.5 Flash for clinical OCR.
+    """
+    if not gemini_client:
+        raise RuntimeError("Gemini API key is missing.")
+    if not PIL:
+        raise RuntimeError("Pillow is not installed. Run `pip install pillow`.")
+    
+    # Convert raw bytes into a PIL Image object that the Gemini SDK can read natively
+    image = PIL.Image.open(io.BytesIO(image_bytes))
+    
+    prompt = """You are a clinical data extraction engine. 
+Analyze this prescription image. Your ONLY job is to identify the prescribed medications.
+
+CRITICAL INSTRUCTIONS:
+1. IGNORE patient names, clinic addresses, contact numbers, dates, and doctor signatures.
+2. IGNORE instructions like "take after meals" or "keep out of reach of children."
+3. Extract ONLY the drug names (brand or generic) and their dosages/forms.
+4. Output them as a clean, vertical list, one drug per line.
+
+EXAMPLE OUTPUT FORMAT:
+Ecosprin 75mg
+Combiflam
+Metformin 500mg SR
+
+Do NOT output markdown formatting (no ```). Do not number the list. Do not include conversational filler. Just the raw list."""
+
+    response = gemini_client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[prompt, image],
+        config={"temperature": 0.0}
+    )
+    return response.text

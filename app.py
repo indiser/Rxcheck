@@ -480,5 +480,24 @@ def check_interactions():
     return jsonify({"findings": findings})
 
 
+@app.route("/api/extract-vision", methods=["POST"])
+def extract_vision():
+    """
+    Receives an image payload from the frontend and passes it to Gemini Vision.
+    """
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+    
+    file = request.files["image"]
+    image_bytes = file.read()
+    
+    try:
+        from llm_router import extract_text_from_image
+        extracted_text = extract_text_from_image(image_bytes)
+        return jsonify({"text": extracted_text})
+    except Exception as exc:
+        app.logger.error("Vision extraction failed: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -8,3 +8,4 @@ uvicorn
 google-genai
 openai
 huggingface_hub
+pillow
