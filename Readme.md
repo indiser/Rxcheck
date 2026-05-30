@@ -230,8 +230,8 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ## 📧 Contact
 
 For questions, suggestions, or feedback:
-- **GitHub Issues**: [Report a bug or request a feature](https://github.com/yourusername/rxcheck/issues)
-- **Email**: your.email@example.com
+- **GitHub Issues**: [Report a bug or request a feature](https://github.com/indiser/Rxcheck/issues)
+- **Email**: indiser01@gmail.com
 
 ---
 
