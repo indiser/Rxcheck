@@ -51,7 +51,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/rxcheck.git
+   git clone https://github.com/indiser/Rxcheck.git
    cd rxcheck
    ```
 
