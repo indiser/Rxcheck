@@ -4,6 +4,37 @@
 // All RxNorm API calls are routed through the Flask proxy.
 // The browser never contacts rxnav.nlm.nih.gov directly.
 // ---------------------------------------------------------------------------
+
+// ==========================================
+// LIABILITY WALL (FORCED CONSENT STATE)
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("disclaimer-modal");
+  const acceptBtn = document.getElementById("accept-disclaimer-btn");
+
+  if (!modal || !acceptBtn) return;
+
+  // Check if the device has already registered consent
+  const hasConsented = localStorage.getItem("rxcheck_liability_consent");
+
+  if (!hasConsented) {
+    // showModal() natively locks the background and disables the rest of the DOM
+    modal.showModal();
+
+    // STRICT ENFORCEMENT: Prevent the user from pressing the 'Escape' key to dismiss the modal
+    modal.addEventListener("cancel", (e) => {
+      e.preventDefault();
+    });
+  }
+
+  // Grant access and record consent locally
+  acceptBtn.addEventListener("click", () => {
+    localStorage.setItem("rxcheck_liability_consent", "true");
+    modal.close();
+  });
+});
+
+
 const RXNORM_BASE = "/api/rxnorm";
 
 const state = {
