@@ -8,10 +8,16 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
+    <!-- Ambient background orbs -->
+    <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
+    <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
+    <div class="bg-orb bg-orb--3" aria-hidden="true"></div>
+    <div class="noise-overlay" aria-hidden="true"></div>
+
     <div class="app-shell">
       <header class="app-header">
         <a class="brand" href="#top" aria-label="RxCheck home">
@@ -24,13 +30,17 @@
             <small>Clinical medication safety</small>
           </span>
         </a>
-        <div class="source-pill">
-          <span class="status-dot"></span>
-          Private browser analysis
+
+        <div class="header-right">
+          <div class="source-pill">
+            <span class="status-dot"></span>
+            Private browser analysis
+          </div>
         </div>
       </header>
 
       <main id="top" class="workspace">
+        <!-- ── LEFT COLUMN: Input Panel ── -->
         <section class="input-panel" aria-labelledby="input-title">
           <div class="panel-heading">
             <div>
@@ -146,6 +156,7 @@
 
           <div class="toolbar">
             <button id="check-btn" class="primary-action" type="button">
+              <span class="btn-icon">⬡</span>
               Check interactions
             </button>
             <button id="extract-btn" class="ghost-action" type="button">
@@ -168,6 +179,7 @@
           </div>
         </section>
 
+        <!-- ── RIGHT COLUMN: Dashboard ── -->
         <section class="dashboard" aria-labelledby="dashboard-title">
           <div class="dashboard-header">
             <div>
@@ -177,21 +189,31 @@
             <div id="api-state" class="api-state">RxNorm not contacted yet</div>
           </div>
 
+          <!-- Risk Grid – Bento Style -->
           <div class="risk-grid" aria-label="Risk summary">
             <article class="risk-card low">
-              <span class="risk-label">Safe</span>
-              <strong id="green-count">0</strong>
-              <p>No known interaction found</p>
+              <div class="risk-card-inner">
+                <span class="risk-label">Safe</span>
+                <strong id="green-count">0</strong>
+                <p>No known interaction found</p>
+              </div>
+              <div class="risk-card-glow risk-card-glow--safe" aria-hidden="true"></div>
             </article>
             <article class="risk-card medium">
-              <span class="risk-label">Caution</span>
-              <strong id="yellow-count">0</strong>
-              <p>Use caution or monitor</p>
+              <div class="risk-card-inner">
+                <span class="risk-label">Caution</span>
+                <strong id="yellow-count">0</strong>
+                <p>Use caution or monitor</p>
+              </div>
+              <div class="risk-card-glow risk-card-glow--caution" aria-hidden="true"></div>
             </article>
             <article class="risk-card high">
-              <span class="risk-label">Dangerous</span>
-              <strong id="red-count">0</strong>
-              <p>Serious interaction signal</p>
+              <div class="risk-card-inner">
+                <span class="risk-label">Dangerous</span>
+                <strong id="red-count">0</strong>
+                <p>Serious interaction signal</p>
+              </div>
+              <div class="risk-card-glow risk-card-glow--danger" aria-hidden="true"></div>
             </article>
           </div>
 
@@ -276,7 +298,7 @@
         <p><strong>RxCheck is an educational AI tool, not a doctor.</strong></p>
         <p>This application provides automated interaction screening and generic medicine estimates. It may miss critical interactions, duplicate therapies, or local brand formulations.</p>
         <p>Never change or stop your medications without consulting a qualified clinician or pharmacist.</p>
-        <button id="accept-disclaimer-btn" class="primary-action">I Understand & Agree</button>
+        <button id="accept-disclaimer-btn" class="primary-action">I Understand &amp; Agree</button>
       </div>
     </dialog>
 
