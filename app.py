@@ -52,6 +52,9 @@ with open("brand_hints.json", "r", encoding="utf-8") as f:
 with open("price_catalog.json", "r", encoding="utf-8") as f:
     PRICE_CATALOG = json.load(f)
 
+with open("jan_aushadhi_catalog.json", "r", encoding="utf-8") as f:
+    JAN_AUSHADHI = json.load(f)
+
 # ---------------------------------------------------------------------------
 # Database configuration — psycopg2 ThreadedConnectionPool
 # ---------------------------------------------------------------------------
@@ -343,6 +346,7 @@ def local_data():
         "brand_hints": BRAND_HINTS,
         "price_catalog": PRICE_CATALOG,
         "brand_savings_lookup": BRAND_SAVINGS_LOOKUP,
+        "jan_aushadhi": JAN_AUSHADHI
     })
 
 

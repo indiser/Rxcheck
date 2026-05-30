@@ -500,6 +500,48 @@ INTERACTION_RULES = [
     },
     {
         "level": "high",
+        "a": ["atorvastatin", "simvastatin", "rosuvastatin"],
+        "b": ["clarithromycin", "itraconazole"],
+        "message": "Clarithromycin and Itraconazole severely inhibit CYP3A4, causing statin levels to spike in the blood.",
+        "action": "High risk of rhabdomyolysis and acute renal failure. Suspend statin while on this antibiotic."
+    },
+    {
+        "level": "high",
+        "a": ["aspirin"],
+        "b": ["ibuprofen", "diclofenac", "naproxen", "aceclofenac"],
+        "message": "Ibuprofen competitively binds to platelet COX-1 receptors, neutralizing the cardioprotective effects of Aspirin while drastically increasing the risk of gastric bleeding.",
+        "action": "Avoid concurrent use. If necessary, take Aspirin at least 2 hours before Ibuprofen."
+    },
+    {
+        "level": "high",
+        "a": ["methotrexate"],
+        "b": ["ibuprofen", "diclofenac", "naproxen", "aceclofenac"],
+        "message": "NSAIDs reduce the renal clearance of methotrexate, leading to rapid, fatal bone marrow suppression.",
+        "action": "Contraindicated in high-dose methotrexate. Extreme caution required for low-dose arthritis regimens."
+    },
+    {
+        "level": "high",
+        "a": ["digoxin"],
+        "b": ["amiodarone"],
+        "message": "Amiodarone heavily displaces digoxin from tissue binding sites and reduces its clearance, doubling digoxin levels.",
+        "action": "Reduce digoxin dose by 50% when starting amiodarone. Monitor for nausea, visual halos, and fatal arrhythmias."
+    },
+    {
+        "level": "high",
+        "a": ["sertraline", "escitalopram", "fluoxetine"],
+        "b": ["tramadol"],
+        "message": "Both drugs increase serotonin levels in the brain, creating a cumulative neurotoxic effect.",
+        "action": "High risk of Serotonin Syndrome (fever, tremors, seizures). Avoid combination or monitor closely."
+    },
+    {
+        "level": "high",
+        "a": ["warfarin"],
+        "b": ["azithromycin", "erythromycin"],
+        "message": "Macrolide antibiotics can alter gut flora (reducing Vitamin K synthesis) and inhibit warfarin metabolism.",
+        "action": "High risk of severe bleeding and spiked INR. Monitor INR closely and adjust warfarin dose."
+    },
+    {
+        "level": "high",
         "a": ["warfarin"],
         "b": ["fluconazole", "metronidazole", "trimethoprim"],
         "message": "Can raise anticoagulant effect and INR.",

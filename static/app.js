@@ -185,6 +185,9 @@ async function loadLocalData() {
     const res = await fetch("/api/local-data");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     state.catalog = await res.json();
+    state.catalog.brand_hints = data.brand_hints || {};
+    state.catalog.price_catalog = data.price_catalog || {};
+    state.catalog.jan_aushadhi = data.jan_aushadhi || {};
     // Re-render the Save Money table now that data is available.
     renderSaveMoneyTable(state.selectedDrugs);
   } catch (err) {
@@ -475,66 +478,6 @@ function extractPrescriptionDrugs(value) {
   return uniqueDrugs(candidates);
 }
 
-// function cleanPrescriptionLine(line) {
-//   const normalized = line
-//     // CHANGE 1: Remove the bracket characters themselves, but KEEP the text inside
-//     .replace(/[()]/g, " ")
-//     .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|gm|ml|iu|units?|%|tabs?|tablets?|caps?)\b/gi, " ")
-//     .replace(/\b(sr|xr|cr|er|pr|mr|xl)\b/gi, " ")
-//     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
-//     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
-//     // CHANGE 2: Deleted the \b\d+\b regex so "Omega 3" and "D3" survive
-//     .replace(/[^\w\s-]/g, " ") // Keeps hyphens for things like L-ascorbic
-//     .replace(/\s+/g, " ")
-//     .trim();
-
-//   let shorthand = "";
-//   const shorthandMap = {
-//     od: "Once daily", bd: "Twice daily", bid: "Twice daily", tds: "Three times daily",
-//     tid: "Three times daily", qid: "Four times daily", sos: "As needed", 
-//     hs: "At bedtime", mane: "In the morning", nocte: "At night", stat: "Immediately",
-//   };
-  
-//   const rawWords = normalized.split(/\s+/);
-//   for (const w of rawWords) {
-//     const lw = w.toLowerCase().replace(/[^\w]/g, "");
-//     if (shorthandMap[lw]) {
-//       shorthand = shorthandMap[lw];
-//       break;
-//     }
-//   }
-
-//   const words = rawWords
-//     // CHANGE 3: Deleted the word.length > 1 filter. Vitamins C, A, E, K now survive!
-//     .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
-
-//   if (!words.length) {
-//     return { cleaned: "", confidence: "none" };
-//   }
-
-//   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
-
-//   const hints = state.catalog.brand_hints || {};
-//   const knownBrand = words.find((word) => hints[word.toLowerCase()]);
-//   if (knownBrand) {
-//     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
-//   }
-
-//   const catalog = state.catalog.price_catalog || {};
-//   const match = words.find(w => {
-//     const lw = w.toLowerCase();
-//     return hints[lw] || catalog[lw] || Object.values(hints).some(v => v.includes(lw));
-//   });
-  
-//   if (match) {
-//     const lw = match.toLowerCase();
-//     const resolved = hints[lw] || match;
-//     return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
-//   }
-
-//   return { cleaned: formatCleaned(titleCase(words.slice(0, 3).join(" "))), confidence: "low" };
-// }
-
 function cleanPrescriptionLine(line) {
   const normalized = line
     .replace(/[()]/g, " ")
@@ -748,6 +691,7 @@ async function normalizeDrug(rawName) {
   const lw = rawName.toLowerCase();
   const hints = state.catalog.brand_hints || {};
   const catalog = state.catalog.price_catalog || {};
+  
 
   // 1. Direct local lookup (Fast & Accurate)
   // Check exact match, hyphenated, and spaced variations
@@ -867,6 +811,32 @@ async function resolveDrug(rawName, signal) {
 
     const finalRxName = catalogMatch ? catalogMatch.display : (properties?.name || generic?.name || titleCase(mappedName));
     const finalGenericName = catalogMatch ? catalogMatch.display : (generic?.name || titleCase(mappedName));
+
+    const govCatalog = state.catalog.jan_aushadhi || {};
+    
+    // Force alphabetical sorting of the salts so "A + B" matches "B + A"
+    const salts = finalGenericName.toLowerCase().split('+').map(s => s.trim()).sort();
+    const genericKey = salts.join(' + ');
+    
+    let govOption = null;
+    let savingsDelta = null;
+
+    if (govCatalog[genericKey] && govCatalog[genericKey].length > 0) {
+      govOption = govCatalog[genericKey][0]; 
+      
+      if (catalogMatch && catalogMatch.range) {
+        // Safe regex: Extract ONLY the first floating point number, ignore the pack size numbers
+        const priceMatch = catalogMatch.range.match(/\d+(\.\d+)?/);
+        const commercialPrice = priceMatch ? parseFloat(priceMatch[0]) : NaN;
+        const govPrice = parseFloat(govOption.price);
+        
+        if (!isNaN(commercialPrice) && !isNaN(govPrice) && commercialPrice > govPrice) {
+          const percentSaved = Math.round(((commercialPrice - govPrice) / commercialPrice) * 100);
+          savingsDelta = `Save ${percentSaved}% (Rs. ${govPrice} via PMBJP)`;
+        }
+      }
+    }
+
     const alternatives = buildAlternativeList(finalGenericName, catalogMatch, finalRxName);
 
     return {
@@ -881,6 +851,8 @@ async function resolveDrug(rawName, signal) {
       priceRange: catalogMatch?.range || "Rs. 40-250 per strip or pack",
       confidence: catalogMatch ? "High Confidence (CSV Match)" : "RxNorm matched",
       lookupStatus: "online",
+      govMatch: govOption ? `${govOption.display} (${govOption.unit})` : null,
+      govSavings: savingsDelta
     };
   } catch (error) {
     console.warn(`RxNorm lookup failed for ${rawName}`, error);
@@ -1149,6 +1121,20 @@ function renderDrugCards(resolved) {
       confBadgeText = "Medium Confidence";
     }
 
+    let govHtml = '';
+    if (drug.govMatch) {
+      govHtml = `
+        <div class="gov-savings-badge" style="margin-top: 10px; padding: 10px; background: var(--green-soft); border-left: 4px solid var(--green); border-radius: 4px;">
+          <p style="margin: 0; font-size: 0.85rem; color: var(--green-dark); font-weight: 600;">
+            🇮🇳 PMBJP Government Alternative Found
+          </p>
+          <p style="margin: 4px 0 0 0; font-size: 1rem; color: var(--green-dark); font-weight: 700;">
+            ${drug.govMatch}
+          </p>
+          ${drug.govSavings ? `<p style="margin: 4px 0 0 0; font-weight: bold; color: var(--green-dark);">${drug.govSavings}</p>` : ''}
+        </div>
+      `;
+    }
     card.innerHTML = `
       <div class="drug-topline">
         <div>
@@ -1167,6 +1153,7 @@ function renderDrugCards(resolved) {
         <dt>India estimate</dt>
         <dd class="price">${escapeHtml(drug.priceRange)}</dd>
       </dl>
+      ${govHtml}
       <div class="meta-row">
         ${confBadgeText === "Low Confidence" ? '<span class="meta-chip" style="color:var(--red-dark); border-color:var(--red-soft); background:var(--red-soft)">Verify Name! Guessed from OCR.</span>' : ""}
         <span class="meta-chip">Confirm brand, dose, and salt locally</span>
