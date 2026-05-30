@@ -341,7 +341,6 @@ function updateExtractionStatus(count, hasText) {
 // ---------------------------------------------------------------------------
 
 const PRESCRIPTION_STOP_WORDS = new Set([
-  "a",
   "after",
   "alternate",
   "before",
@@ -445,33 +444,96 @@ function extractPrescriptionDrugs(value) {
   return uniqueDrugs(candidates);
 }
 
+// function cleanPrescriptionLine(line) {
+//   const normalized = line
+//     .replace(/\([^)]*\)/g, " ")
+//     .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|gm|ml|iu|units?|%|tabs?|tablets?|caps?)\b/gi, " ")
+//     .replace(/\b(sr|xr|cr|er|pr|mr|xl)\b/gi, " ")
+//     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
+//     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
+//     .replace(/\b\d+\b/g, " ")
+//     .replace(/[^\w\s-]/g, " ")
+//     .replace(/\s+/g, " ")
+//     .trim();
+
+//   // Extract Indian prescription shorthand before stop words remove it
+//   let shorthand = "";
+//   const shorthandMap = {
+//     od: "Once daily",
+//     bd: "Twice daily",
+//     bid: "Twice daily",
+//     tds: "Three times daily",
+//     tid: "Three times daily",
+//     qid: "Four times daily",
+//     sos: "As needed",
+//     hs: "At bedtime",
+//     mane: "In the morning",
+//     nocte: "At night",
+//     stat: "Immediately",
+//   };
+//   const rawWords = normalized.split(/\s+/);
+//   for (const w of rawWords) {
+//     const lw = w.toLowerCase().replace(/[^\w]/g, "");
+//     if (shorthandMap[lw]) {
+//       shorthand = shorthandMap[lw];
+//       break;
+//     }
+//   }
+
+//   const words = rawWords
+//     .filter((word) => word.length > 1)
+//     .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
+
+//   if (!words.length) {
+//     return { cleaned: "", confidence: "none" };
+//   }
+
+//   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
+
+//   // Exact brand match against locally cached catalog hints
+//   const hints = state.catalog.brand_hints || {};
+//   const knownBrand = words.find((word) => hints[word.toLowerCase()]);
+//   if (knownBrand) {
+//     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
+//   }
+
+//   // Fuzzy brand / generic match against catalog
+//   const catalog = state.catalog.price_catalog || {};
+//   const match = words.find(w => {
+//     const lw = w.toLowerCase();
+//     return hints[lw] || catalog[lw] ||
+//       Object.values(hints).some(v => v.includes(lw));
+//   });
+//   if (match) {
+//     const lw = match.toLowerCase();
+//     const resolved = hints[lw] || match;
+//     return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
+//   }
+
+//   // Fallback guess
+//   return { cleaned: formatCleaned(titleCase(words.slice(0, 2).join(" "))), confidence: "low" };
+// }
+
 function cleanPrescriptionLine(line) {
   const normalized = line
-    .replace(/\([^)]*\)/g, " ")
+    // CHANGE 1: Remove the bracket characters themselves, but KEEP the text inside
+    .replace(/[()]/g, " ")
     .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|gm|ml|iu|units?|%|tabs?|tablets?|caps?)\b/gi, " ")
     .replace(/\b(sr|xr|cr|er|pr|mr|xl)\b/gi, " ")
     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
-    .replace(/\b\d+\b/g, " ")
-    .replace(/[^\w\s-]/g, " ")
+    // CHANGE 2: Deleted the \b\d+\b regex so "Omega 3" and "D3" survive
+    .replace(/[^\w\s-]/g, " ") // Keeps hyphens for things like L-ascorbic
     .replace(/\s+/g, " ")
     .trim();
 
-  // Extract Indian prescription shorthand before stop words remove it
   let shorthand = "";
   const shorthandMap = {
-    od: "Once daily",
-    bd: "Twice daily",
-    bid: "Twice daily",
-    tds: "Three times daily",
-    tid: "Three times daily",
-    qid: "Four times daily",
-    sos: "As needed",
-    hs: "At bedtime",
-    mane: "In the morning",
-    nocte: "At night",
-    stat: "Immediately",
+    od: "Once daily", bd: "Twice daily", bid: "Twice daily", tds: "Three times daily",
+    tid: "Three times daily", qid: "Four times daily", sos: "As needed", 
+    hs: "At bedtime", mane: "In the morning", nocte: "At night", stat: "Immediately",
   };
+  
   const rawWords = normalized.split(/\s+/);
   for (const w of rawWords) {
     const lw = w.toLowerCase().replace(/[^\w]/g, "");
@@ -482,7 +544,7 @@ function cleanPrescriptionLine(line) {
   }
 
   const words = rawWords
-    .filter((word) => word.length > 1)
+    // CHANGE 3: Deleted the word.length > 1 filter. Vitamins C, A, E, K now survive!
     .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
 
   if (!words.length) {
@@ -491,28 +553,25 @@ function cleanPrescriptionLine(line) {
 
   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
 
-  // Exact brand match against locally cached catalog hints
   const hints = state.catalog.brand_hints || {};
   const knownBrand = words.find((word) => hints[word.toLowerCase()]);
   if (knownBrand) {
     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
   }
 
-  // Fuzzy brand / generic match against catalog
   const catalog = state.catalog.price_catalog || {};
   const match = words.find(w => {
     const lw = w.toLowerCase();
-    return hints[lw] || catalog[lw] ||
-      Object.values(hints).some(v => v.includes(lw));
+    return hints[lw] || catalog[lw] || Object.values(hints).some(v => v.includes(lw));
   });
+  
   if (match) {
     const lw = match.toLowerCase();
     const resolved = hints[lw] || match;
     return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
   }
 
-  // Fallback guess
-  return { cleaned: formatCleaned(titleCase(words.slice(0, 2).join(" "))), confidence: "low" };
+  return { cleaned: formatCleaned(titleCase(words.slice(0, 3).join(" "))), confidence: "low" };
 }
 
 function cleanDrugText(text) {
