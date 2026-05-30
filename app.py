@@ -36,13 +36,21 @@ from flask import Flask, jsonify, render_template, request
 from psycopg2 import pool as pg_pool
 from psycopg2.extras import RealDictCursor
 
-from data import BRAND_HINTS, BRAND_SAVINGS_LOOKUP, PRICE_CATALOG
+# from data import BRAND_HINTS, BRAND_SAVINGS_LOOKUP, PRICE_CATALOG
+from data import BRAND_SAVINGS_LOOKUP
+import json
 
 load_dotenv()
 
 app = Flask(__name__)
 
 _RXNORM_UPSTREAM = "https://rxnav.nlm.nih.gov/REST"
+
+with open("brand_hints.json", "r", encoding="utf-8") as f:
+    BRAND_HINTS = json.load(f)
+
+with open("price_catalog.json", "r", encoding="utf-8") as f:
+    PRICE_CATALOG = json.load(f)
 
 # ---------------------------------------------------------------------------
 # Database configuration — psycopg2 ThreadedConnectionPool

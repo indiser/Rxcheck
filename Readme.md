@@ -97,10 +97,20 @@
 app.py
 ├── GET  /                          → Render SPA shell
 ├── GET  /api/rxnorm/<path>         → Transparent RxNorm proxy
-├── GET  /api/local-data            → Serve safe catalog data
+├── GET  /api/local-data            → Serve safe catalog data (brand_hints.json + price_catalog.json)
 ├── POST /api/normalize-drug        → Server-side brand→generic matching
 ├── POST /api/check-interactions    → PostgreSQL interaction query
-└── POST /api/extract-vision        → Gemini image analysis endpoint
+└── POST /api/extract-vision        → Gemini Vision image analysis endpoint
+```
+
+### Catalog Builder (Data Processing)
+```
+build_catgory.py
+├── INPUT  → updated_indian_medicine_data.csv
+├── CLEAN  → Strip dosage forms, normalize salts
+├── EXTRACT → Brand families (e.g., "Ascoril LS" → "ascoril ls" + "ascoril")
+├── OUTPUT → brand_hints.json (brand→generic mappings)
+└── OUTPUT → price_catalog.json (generic→pricing + alternatives)
 ```
 
 ### ETL Pipeline (openFDA Ingestion)
@@ -453,6 +463,18 @@ graph LR
    ```bash
    pip install -r requirements.txt
    ```
+   
+   **Dependencies include:**
+   - Flask — Web framework
+   - psycopg2-binary — PostgreSQL adapter
+   - python-dotenv — Environment variables
+   - requests — HTTP client
+   - groq — Groq LLM API
+   - google-genai — Gemini API (Vision + LLM)
+   - openai — OpenAI-compatible clients
+   - huggingface_hub — HuggingFace API
+   - pillow — Image processing
+   - gunicorn, uvicorn — Production servers
 
 4. **Set up PostgreSQL database**
    ```bash
@@ -478,12 +500,20 @@ graph LR
    EOF
    ```
 
-6. **Initialize database schema**
+6. **Build catalog from CSV dataset (optional)**
+   ```bash
+   # Generates brand_hints.json and price_catalog.json from CSV
+   python build_catgory.py
+   ```
+   
+   **Note:** Pre-built JSON files are included in the repository. Only run this if you have an updated CSV dataset.
+
+7. **Initialize database schema**
    ```bash
    python etl.py --seed-only
    ```
 
-7. **Run the ETL pipeline (optional)**
+8. **Run the ETL pipeline (optional)**
    ```bash
    # Fetch 100 FDA records and populate database
    python etl.py --limit 100
@@ -492,15 +522,15 @@ graph LR
    python etl.py --limit 100  # Fetches next 100 records
    ```
 
-8. **Start the Flask application**
+9. **Start the Flask application**
    ```bash
    python app.py
    ```
 
-9. **Open in browser**
-   ```
-   http://localhost:5000
-   ```
+10. **Open in browser**
+    ```
+    http://localhost:5000
+    ```
 
 ---
 
@@ -508,21 +538,103 @@ graph LR
 
 ```
 rxcheck/
-├── app.py                 # Flask REST API with connection pooling
-├── data.py                # Business data (brands, prices, interaction rules)
-├── etl.py                 # openFDA ingestion pipeline with checkpointing
-├── llm_router.py          # Multi-provider LLM failover router
-├── schema.sql             # PostgreSQL DDL (drugs, interactions, etl_sync_state)
-├── .env                   # Environment configuration (not in repo)
-├── .gitignore             # Git ignore patterns
-├── requirements.txt       # Python dependencies
+├── app.py                              # Flask REST API with connection pooling
+├── data.py                              # Business data (interaction rules, savings lookup)
+├── etl.py                               # openFDA ingestion pipeline with checkpointing
+├── llm_router.py                        # Multi-provider LLM failover router + Gemini Vision
+├── schema.sql                           # PostgreSQL DDL (drugs, interactions, etl_sync_state)
+├── build_catgory.py                     # CSV→JSON catalog builder (brand hints + pricing)
+├── brand_hints.json                     # Auto-generated brand→generic mappings
+├── price_catalog.json                   # Auto-generated generic drug pricing catalog
+├── updated_indian_medicine_data.csv     # Source dataset for Indian medicines
+├── .env                                 # Environment configuration (not in repo)
+├── .gitignore                           # Git ignore patterns
+├── requirements.txt                     # Python dependencies
+├── images/                              # Website screenshots for README
+│   ├── home-screen.png
+│   ├── drug-input.png
+│   ├── prescription-upload.png
+│   ├── interaction-results.png
+│   ├── generic-alternatives.png
+│   └── emergency-warning.png
 ├── templates/
-│   └── index.html        # SPA shell with disclaimer modal
+│   └── index.html                      # SPA shell with disclaimer modal
 ├── static/
-│   ├── app.js            # Client-side logic (image analysis, UI, API calls)
-│   └── styles.css        # Design system with emergency warning styles
-└── README.md             # This file
+│   ├── app.js                          # Client-side logic (image analysis, UI, API calls)
+│   └── styles.css                      # Design system with emergency warning styles
+└── README.md                            # This file
 ```
+
+---
+
+## 📊 Catalog Builder
+
+The `build_catgory.py` script processes a CSV dataset of Indian medicines to generate optimized JSON catalogs for fast server-side lookups.
+
+### Input Dataset
+**File:** `updated_indian_medicine_data.csv`
+
+**Columns used:**
+- `name` — Brand name (e.g., "Ascoril LS Syrup 100ml")
+- `short_composition1` — Primary active ingredient
+- `short_composition2` — Secondary active ingredient (if combination drug)
+- `price` — MRP in rupees
+- `pack_size_label` — Packaging description
+
+### Processing Pipeline
+
+1. **Salt Normalization**
+   - Combines composition1 + composition2
+   - Strips dosage information in parentheses
+   - Converts to lowercase for case-insensitive matching
+
+2. **Brand Family Extraction**
+   - Removes dosage forms (tablet, syrup, injection, etc.)
+   - Strips numeric dosages (500mg, 10ml, etc.)
+   - Preserves letter suffixes (LS, AT, CV, SR, etc.)
+   - Example: "Ascoril LS Syrup 100ml" → "ascoril ls"
+
+3. **Dual-Key Strategy**
+   - Full brand family: `"ascoril ls" → "ambroxol + levosalbutamol + guaifenesin"`
+   - Base word: `"ascoril" → "ambroxol + levosalbutamol + guaifenesin"`
+   - Prevents false-positive overwrites (base word only saved if not already mapped)
+
+### Output Files
+
+**brand_hints.json**
+```json
+{
+  "ascoril ls": "ambroxol + levosalbutamol + guaifenesin",
+  "ascoril": "ambroxol + levosalbutamol + guaifenesin",
+  "glycomet": "metformin",
+  "glycomet gp": "metformin + glimepiride"
+}
+```
+
+**price_catalog.json**
+```json
+{
+  "metformin": {
+    "display": "Metformin",
+    "alternatives": ["Glycomet 500mg Tablet"],
+    "range": "Rs. 18 (strip of 10 tablets)"
+  }
+}
+```
+
+### Usage
+
+```bash
+# Generate catalogs from CSV
+python build_catgory.py
+
+# Output:
+# Success! Built high-precision catalog.
+# - brand_hints.json (thousands of brand→generic mappings)
+# - price_catalog.json (generic drug pricing database)
+```
+
+**Note:** Pre-built JSON files are included in the repository. Only regenerate if you have an updated CSV dataset.
 
 ---
 
@@ -581,16 +693,19 @@ Photo Upload → Gemini Vision API → Text Extraction → Drug Name Parsing
 
 ### Backend
 - **Flask 3.1+** — Lightweight WSGI web framework
-- **psycopg2** — PostgreSQL adapter with connection pooling
+- **psycopg2-binary** — PostgreSQL adapter with connection pooling
 - **python-dotenv** — Environment variable management
 - **requests** — HTTP library for RxNorm proxy and FDA API
+- **gunicorn** — Production WSGI server
+- **uvicorn** — ASGI server for async workloads
 
 ### ETL & AI
 - **Groq** — Primary LLM provider (llama-3.3-70b-versatile)
 - **Cerebras** — Fallback LLM (gpt-oss-120b)
-- **Google Gemini** — Fallback LLM (gemini-2.5-flash) + Vision API
-- **OpenRouter** — Free tier fallback
-- **HuggingFace** — Final fallback (Meta-Llama-3-8B)
+- **Google Gemini (google-genai)** — Fallback LLM (gemini-2.5-flash) + Vision API
+- **OpenRouter (openai)** — Free tier fallback
+- **HuggingFace (huggingface_hub)** — Final fallback (Meta-Llama-3-8B)
+- **Pillow** — Image preprocessing for prescription uploads
 
 ### Database
 - **PostgreSQL 12+** — Relational database with advanced text search
@@ -602,6 +717,11 @@ Photo Upload → Gemini Vision API → Text Extraction → Drug Name Parsing
 - **Gemini Vision API** — Cloud-based prescription image analysis
 - **Custom CSS** — Design system with CSS variables
 - **Google Fonts** — Syne, IBM Plex Mono, IBM Plex Sans
+
+### Data Processing
+- **pandas** — CSV data processing (build_catgory.py)
+- **JSON** — Catalog storage format (brand_hints.json, price_catalog.json)
+- **CSV** — Indian medicine dataset (updated_indian_medicine_data.csv)
 
 ---
 

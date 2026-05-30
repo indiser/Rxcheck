@@ -477,31 +477,24 @@ function extractPrescriptionDrugs(value) {
 
 // function cleanPrescriptionLine(line) {
 //   const normalized = line
-//     .replace(/\([^)]*\)/g, " ")
+//     // CHANGE 1: Remove the bracket characters themselves, but KEEP the text inside
+//     .replace(/[()]/g, " ")
 //     .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|gm|ml|iu|units?|%|tabs?|tablets?|caps?)\b/gi, " ")
 //     .replace(/\b(sr|xr|cr|er|pr|mr|xl)\b/gi, " ")
 //     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
 //     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
-//     .replace(/\b\d+\b/g, " ")
-//     .replace(/[^\w\s-]/g, " ")
+//     // CHANGE 2: Deleted the \b\d+\b regex so "Omega 3" and "D3" survive
+//     .replace(/[^\w\s-]/g, " ") // Keeps hyphens for things like L-ascorbic
 //     .replace(/\s+/g, " ")
 //     .trim();
 
-//   // Extract Indian prescription shorthand before stop words remove it
 //   let shorthand = "";
 //   const shorthandMap = {
-//     od: "Once daily",
-//     bd: "Twice daily",
-//     bid: "Twice daily",
-//     tds: "Three times daily",
-//     tid: "Three times daily",
-//     qid: "Four times daily",
-//     sos: "As needed",
-//     hs: "At bedtime",
-//     mane: "In the morning",
-//     nocte: "At night",
-//     stat: "Immediately",
+//     od: "Once daily", bd: "Twice daily", bid: "Twice daily", tds: "Three times daily",
+//     tid: "Three times daily", qid: "Four times daily", sos: "As needed", 
+//     hs: "At bedtime", mane: "In the morning", nocte: "At night", stat: "Immediately",
 //   };
+  
 //   const rawWords = normalized.split(/\s+/);
 //   for (const w of rawWords) {
 //     const lw = w.toLowerCase().replace(/[^\w]/g, "");
@@ -512,7 +505,7 @@ function extractPrescriptionDrugs(value) {
 //   }
 
 //   const words = rawWords
-//     .filter((word) => word.length > 1)
+//     // CHANGE 3: Deleted the word.length > 1 filter. Vitamins C, A, E, K now survive!
 //     .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
 
 //   if (!words.length) {
@@ -521,40 +514,35 @@ function extractPrescriptionDrugs(value) {
 
 //   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
 
-//   // Exact brand match against locally cached catalog hints
 //   const hints = state.catalog.brand_hints || {};
 //   const knownBrand = words.find((word) => hints[word.toLowerCase()]);
 //   if (knownBrand) {
 //     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
 //   }
 
-//   // Fuzzy brand / generic match against catalog
 //   const catalog = state.catalog.price_catalog || {};
 //   const match = words.find(w => {
 //     const lw = w.toLowerCase();
-//     return hints[lw] || catalog[lw] ||
-//       Object.values(hints).some(v => v.includes(lw));
+//     return hints[lw] || catalog[lw] || Object.values(hints).some(v => v.includes(lw));
 //   });
+  
 //   if (match) {
 //     const lw = match.toLowerCase();
 //     const resolved = hints[lw] || match;
 //     return { cleaned: formatCleaned(titleCase(resolved)), confidence: "high" };
 //   }
 
-//   // Fallback guess
-//   return { cleaned: formatCleaned(titleCase(words.slice(0, 2).join(" "))), confidence: "low" };
+//   return { cleaned: formatCleaned(titleCase(words.slice(0, 3).join(" "))), confidence: "low" };
 // }
 
 function cleanPrescriptionLine(line) {
   const normalized = line
-    // CHANGE 1: Remove the bracket characters themselves, but KEEP the text inside
     .replace(/[()]/g, " ")
     .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|gm|ml|iu|units?|%|tabs?|tablets?|caps?)\b/gi, " ")
     .replace(/\b(sr|xr|cr|er|pr|mr|xl)\b/gi, " ")
     .replace(/\b\d+\s*-\s*\d+\s*-\s*\d+\b/g, " ")
     .replace(/\b\d+\/\d+(\/\d+)?\b/g, " ")
-    // CHANGE 2: Deleted the \b\d+\b regex so "Omega 3" and "D3" survive
-    .replace(/[^\w\s-]/g, " ") // Keeps hyphens for things like L-ascorbic
+    .replace(/[^\w\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -574,22 +562,30 @@ function cleanPrescriptionLine(line) {
     }
   }
 
-  const words = rawWords
-    // CHANGE 3: Deleted the word.length > 1 filter. Vitamins C, A, E, K now survive!
-    .filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
+  const words = rawWords.filter((word) => !PRESCRIPTION_STOP_WORDS.has(word.toLowerCase()));
 
   if (!words.length) {
     return { cleaned: "", confidence: "none" };
   }
 
   const formatCleaned = (name) => shorthand ? `${name} (${shorthand})` : name;
-
   const hints = state.catalog.brand_hints || {};
+
+  // 1. BIGRAM SLIDING WINDOW: Check 2-word combinations first (e.g. "Ascoril LS", "Amlokind AT")
+  for (let i = 0; i < words.length - 1; i++) {
+    const bigram = `${words[i]} ${words[i+1]}`.toLowerCase();
+    if (hints[bigram] || hints[bigram.replace(' ', '-')]) {
+      return { cleaned: formatCleaned(titleCase(bigram)), confidence: "high" };
+    }
+  }
+
+  // 2. UNIGRAM FALLBACK: Check single words if no bigram matched
   const knownBrand = words.find((word) => hints[word.toLowerCase()]);
   if (knownBrand) {
     return { cleaned: formatCleaned(titleCase(knownBrand)), confidence: "high" };
   }
 
+  // 3. GENERIC SEARCH
   const catalog = state.catalog.price_catalog || {};
   const match = words.find(w => {
     const lw = w.toLowerCase();
@@ -733,7 +729,35 @@ async function runCheck() {
  *
  * Falls back gracefully if the endpoint is unreachable.
  */
+// async function normalizeDrug(rawName) {
+//   try {
+//     const res = await fetch("/api/normalize-drug", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ name: rawName }),
+//     });
+//     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+//     return await res.json(); // { normalized: string, catalog: object|null }
+//   } catch (err) {
+//     console.warn("normalizeDrug failed, using raw name as fallback", err);
+//     return { normalized: rawName.toLowerCase().trim(), catalog: null };
+//   }
+// }
+
 async function normalizeDrug(rawName) {
+  const lw = rawName.toLowerCase();
+  const hints = state.catalog.brand_hints || {};
+  const catalog = state.catalog.price_catalog || {};
+
+  // 1. Direct local lookup (Fast & Accurate)
+  // Check exact match, hyphenated, and spaced variations
+  const generic = hints[lw] || hints[lw.replace(/-/g, ' ')] || hints[lw.replace(/ /g, '-')];
+
+  if (generic) {
+    return { normalized: generic, catalog: catalog[generic] };
+  }
+
+  // 2. Fallback to backend only if completely unknown
   try {
     const res = await fetch("/api/normalize-drug", {
       method: "POST",
@@ -741,15 +765,74 @@ async function normalizeDrug(rawName) {
       body: JSON.stringify({ name: rawName }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json(); // { normalized: string, catalog: object|null }
+    return await res.json(); 
   } catch (err) {
-    console.warn("normalizeDrug failed, using raw name as fallback", err);
-    return { normalized: rawName.toLowerCase().trim(), catalog: null };
+    return { normalized: lw.trim(), catalog: null };
   }
 }
 
+// async function resolveDrug(rawName, signal) {
+//   // 1. Server-side brand→generic normalisation (replaces client-side Levenshtein)
+//   const { normalized: mappedName, catalog: serverCatalog } = await normalizeDrug(rawName);
+//   const catalogMatch = serverCatalog || findCatalogEntry(`${rawName} ${mappedName}`);
+
+//   const fallback = {
+//     rawName,
+//     queryName: mappedName,
+//     rxcui: "",
+//     rxName: titleCase(mappedName),
+//     tty: "local",
+//     ingredients: catalogMatch ? [catalogMatch.display] : [titleCase(mappedName)],
+//     genericName: catalogMatch?.display || titleCase(mappedName),
+//     alternatives: catalogMatch?.alternatives || [`${titleCase(mappedName)} generic equivalent`],
+//     priceRange: catalogMatch?.range || "Rs. 40-250 per strip or pack",
+//     confidence: catalogMatch ? "Local catalog match" : "Unverified estimate",
+//     lookupStatus: "offline fallback",
+//   };
+
+//   try {
+//     const rxcui = await findRxcui(mappedName, signal);
+//     if (!rxcui) {
+//       return fallback;
+//     }
+
+//     const [properties, generic, relatedIngredients] = await Promise.all([
+//       getProperties(rxcui, signal),
+//       getGenericProduct(rxcui, signal),
+//       getRelatedByType(rxcui, "IN+PIN", signal),
+//     ]);
+
+//     const rxName = properties?.name || generic?.name || titleCase(mappedName);
+//     // const ingredientNames = relatedIngredients.length
+//     //   ? relatedIngredients.map((item) => item.name)
+//     //   : [deriveIngredientName(rxName, mappedName)];
+//     const ingredientNames = catalogMatch 
+//       ? catalogMatch.display.split("+").map(s => s.trim()) 
+//       : (relatedIngredients.length ? relatedIngredients.map((item) => item.name) : [deriveIngredientName(rxName, mappedName)]);
+//     const catalog = findCatalogEntry(`${rxName} ${ingredientNames.join(" ")} ${mappedName}`) || catalogMatch;
+//     const genericName = generic?.name || catalog?.display || ingredientNames[0] || rxName;
+//     const alternatives = buildAlternativeList(genericName, catalog, rxName);
+
+//     return {
+//       rawName,
+//       queryName: mappedName,
+//       rxcui,
+//       rxName,
+//       tty: properties?.tty || generic?.tty || "RxNorm",
+//       ingredients: ingredientNames,
+//       genericName,
+//       alternatives,
+//       priceRange: catalog?.range || "Rs. 40-250 per strip or pack",
+//       confidence: properties?.name ? "RxNorm normalized" : "RxNorm matched",
+//       lookupStatus: "online",
+//     };
+//   } catch (error) {
+//     console.warn(`RxNorm lookup failed for ${rawName}`, error);
+//     return fallback;
+//   }
+// }
+
 async function resolveDrug(rawName, signal) {
-  // 1. Server-side brand→generic normalisation (replaces client-side Levenshtein)
   const { normalized: mappedName, catalog: serverCatalog } = await normalizeDrug(rawName);
   const catalogMatch = serverCatalog || findCatalogEntry(`${rawName} ${mappedName}`);
 
@@ -757,9 +840,9 @@ async function resolveDrug(rawName, signal) {
     rawName,
     queryName: mappedName,
     rxcui: "",
-    rxName: titleCase(mappedName),
+    rxName: catalogMatch ? catalogMatch.display : titleCase(mappedName),
     tty: "local",
-    ingredients: catalogMatch ? [catalogMatch.display] : [titleCase(mappedName)],
+    ingredients: catalogMatch ? catalogMatch.display.split("+").map(s => s.trim()) : [titleCase(mappedName)],
     genericName: catalogMatch?.display || titleCase(mappedName),
     alternatives: catalogMatch?.alternatives || [`${titleCase(mappedName)} generic equivalent`],
     priceRange: catalogMatch?.range || "Rs. 40-250 per strip or pack",
@@ -769,9 +852,7 @@ async function resolveDrug(rawName, signal) {
 
   try {
     const rxcui = await findRxcui(mappedName, signal);
-    if (!rxcui) {
-      return fallback;
-    }
+    if (!rxcui) return fallback;
 
     const [properties, generic, relatedIngredients] = await Promise.all([
       getProperties(rxcui, signal),
@@ -779,25 +860,26 @@ async function resolveDrug(rawName, signal) {
       getRelatedByType(rxcui, "IN+PIN", signal),
     ]);
 
-    const rxName = properties?.name || generic?.name || titleCase(mappedName);
-    const ingredientNames = relatedIngredients.length
-      ? relatedIngredients.map((item) => item.name)
-      : [deriveIngredientName(rxName, mappedName)];
-    const catalog = findCatalogEntry(`${rxName} ${ingredientNames.join(" ")} ${mappedName}`) || catalogMatch;
-    const genericName = generic?.name || catalog?.display || ingredientNames[0] || rxName;
-    const alternatives = buildAlternativeList(genericName, catalog, rxName);
+    // CRITICAL OVERRIDE: Trust Indian CSV data over RxNorm's incomplete combination mapping
+    const ingredientNames = catalogMatch
+      ? catalogMatch.display.split("+").map(s => s.trim())
+      : (relatedIngredients.length ? relatedIngredients.map((item) => item.name) : [deriveIngredientName(properties?.name || generic?.name || mappedName, mappedName)]);
+
+    const finalRxName = catalogMatch ? catalogMatch.display : (properties?.name || generic?.name || titleCase(mappedName));
+    const finalGenericName = catalogMatch ? catalogMatch.display : (generic?.name || titleCase(mappedName));
+    const alternatives = buildAlternativeList(finalGenericName, catalogMatch, finalRxName);
 
     return {
       rawName,
       queryName: mappedName,
       rxcui,
-      rxName,
+      rxName: finalRxName,
       tty: properties?.tty || generic?.tty || "RxNorm",
       ingredients: ingredientNames,
-      genericName,
+      genericName: finalGenericName,
       alternatives,
-      priceRange: catalog?.range || "Rs. 40-250 per strip or pack",
-      confidence: properties?.name ? "RxNorm normalized" : "RxNorm matched",
+      priceRange: catalogMatch?.range || "Rs. 40-250 per strip or pack",
+      confidence: catalogMatch ? "High Confidence (CSV Match)" : "RxNorm matched",
       lookupStatus: "online",
     };
   } catch (error) {
@@ -1120,11 +1202,27 @@ function deriveIngredientName(rxName, fallback) {
  * Search state.catalog.price_catalog for an entry whose key appears in `text`.
  * Replaces the former global PRICE_CATALOG lookup.
  */
+// function findCatalogEntry(text) {
+//   const catalog = state.catalog.price_catalog || {};
+//   const haystack = text.toLowerCase();
+//   const normalizedHaystack = haystack.replace("paracetamol", "acetaminophen");
+//   const key = Object.keys(catalog).find((item) => {
+//     const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+//     return new RegExp(`(^|\\W)${escaped}(\\W|$)`, "i").test(normalizedHaystack);
+//   });
+//   return key ? catalog[key] : null;
+// }
+
 function findCatalogEntry(text) {
   const catalog = state.catalog.price_catalog || {};
   const haystack = text.toLowerCase();
   const normalizedHaystack = haystack.replace("paracetamol", "acetaminophen");
-  const key = Object.keys(catalog).find((item) => {
+
+  // CRITICAL FIX: Sort keys longest to shortest. 
+  // Forces "Amlodipine + Atenolol" to be evaluated before "Amlodipine"
+  const sortedKeys = Object.keys(catalog).sort((a, b) => b.length - a.length);
+
+  const key = sortedKeys.find((item) => {
     const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(^|\\W)${escaped}(\\W|$)`, "i").test(normalizedHaystack);
   });

@@ -14,236 +14,236 @@ served via /api/local-data.
 # Brand → Generic name mappings
 # Used by the /api/normalize-drug endpoint for server-side Levenshtein matching.
 # ---------------------------------------------------------------------------
-BRAND_HINTS = {
-    "aldactone": "spironolactone",
-    "amlong": "amlodipine",
-    "atorva": "atorvastatin",
-    "augmentin": "amoxicillin clavulanate",
-    "azithral": "azithromycin",
-    "calpol": "paracetamol",
-    "cetzine": "cetirizine",
-    "ciplox": "ciprofloxacin",
-    "clopitab": "clopidogrel",
-    "clopilet": "clopidogrel",
-    "combiflam": "ibuprofen paracetamol",
-    "crocin": "paracetamol",
-    "deriphyllin": "etofylline theophylline",
-    "dolo": "paracetamol",
-    "emeset": "ondansetron",
-    "ecosprin": "aspirin",
-    "allegra": "fexofenadine",
-    "glycomet": "metformin",
-    "glucophage": "metformin",
-    "januvia": "sitagliptin",
-    "janumet": "sitagliptin metformin",
-    "lasix": "furosemide",
-    "montair": "montelukast levocetirizine",
-    "pan": "pantoprazole",
-    "pantocid": "pantoprazole",
-    "razo": "rabeprazole",
-    "rozavel": "rosuvastatin",
-    "shelcal": "calcium carbonate",
-    "telma": "telmisartan",
-    "thyronorm": "levothyroxine",
-    "udiliv": "ursodeoxycholic acid",
-}
+# BRAND_HINTS = {
+#     "aldactone": "spironolactone",
+#     "amlong": "amlodipine",
+#     "atorva": "atorvastatin",
+#     "augmentin": "amoxicillin clavulanate",
+#     "azithral": "azithromycin",
+#     "calpol": "paracetamol",
+#     "cetzine": "cetirizine",
+#     "ciplox": "ciprofloxacin",
+#     "clopitab": "clopidogrel",
+#     "clopilet": "clopidogrel",
+#     "combiflam": "ibuprofen paracetamol",
+#     "crocin": "paracetamol",
+#     "deriphyllin": "etofylline theophylline",
+#     "dolo": "paracetamol",
+#     "emeset": "ondansetron",
+#     "ecosprin": "aspirin",
+#     "allegra": "fexofenadine",
+#     "glycomet": "metformin",
+#     "glucophage": "metformin",
+#     "januvia": "sitagliptin",
+#     "janumet": "sitagliptin metformin",
+#     "lasix": "furosemide",
+#     "montair": "montelukast levocetirizine",
+#     "pan": "pantoprazole",
+#     "pantocid": "pantoprazole",
+#     "razo": "rabeprazole",
+#     "rozavel": "rosuvastatin",
+#     "shelcal": "calcium carbonate",
+#     "telma": "telmisartan",
+#     "thyronorm": "levothyroxine",
+#     "udiliv": "ursodeoxycholic acid",
+# }
 
-# ---------------------------------------------------------------------------
-# Generic drug price catalog
-# Keyed by lowercase generic INN name.
-# ---------------------------------------------------------------------------
-PRICE_CATALOG = {
-    "acetaminophen": {
-        "display": "Paracetamol / Acetaminophen",
-        "alternatives": ["Paracetamol tablet", "Paracetamol suspension"],
-        "range": "Rs. 12-45 per strip of 10 tablets",
-    },
-    "amlodipine": {
-        "display": "Amlodipine",
-        "alternatives": ["Amlodipine 2.5 mg", "Amlodipine 5 mg", "Amlodipine 10 mg"],
-        "range": "Rs. 12-60 per strip of 10 tablets",
-    },
-    "amoxicillin": {
-        "display": "Amoxicillin",
-        "alternatives": ["Amoxicillin capsule", "Amoxicillin + clavulanate tablet"],
-        "range": "Rs. 45-220 per strip",
-    },
-    "aspirin": {
-        "display": "Aspirin",
-        "alternatives": ["Aspirin gastro-resistant tablet", "Low-dose aspirin tablet"],
-        "range": "Rs. 5-45 per strip of 14 tablets",
-    },
-    "atorvastatin": {
-        "display": "Atorvastatin",
-        "alternatives": ["Atorvastatin 10 mg", "Atorvastatin 20 mg", "Atorvastatin 40 mg"],
-        "range": "Rs. 35-190 per strip of 10 tablets",
-    },
-    "azithromycin": {
-        "display": "Azithromycin",
-        "alternatives": ["Azithromycin 250 mg", "Azithromycin 500 mg"],
-        "range": "Rs. 55-150 per strip of 3 tablets",
-    },
-    "calcium": {
-        "display": "Calcium carbonate",
-        "alternatives": ["Calcium carbonate", "Calcium + vitamin D3"],
-        "range": "Rs. 60-220 per strip",
-    },
-    "carbamazepine": {
-        "display": "Carbamazepine",
-        "alternatives": ["Carbamazepine immediate-release", "Carbamazepine controlled-release"],
-        "range": "Rs. 18-95 per strip of 10 tablets",
-    },
-    "ciprofloxacin": {
-        "display": "Ciprofloxacin",
-        "alternatives": ["Ciprofloxacin 250 mg", "Ciprofloxacin 500 mg"],
-        "range": "Rs. 25-95 per strip of 10 tablets",
-    },
-    "clarithromycin": {
-        "display": "Clarithromycin",
-        "alternatives": ["Clarithromycin 250 mg", "Clarithromycin 500 mg"],
-        "range": "Rs. 120-420 per strip",
-    },
-    "clopidogrel": {
-        "display": "Clopidogrel",
-        "alternatives": ["Clopidogrel 75 mg", "Clopidogrel + aspirin fixed dose"],
-        "range": "Rs. 35-170 per strip of 10 tablets",
-    },
-    "diclofenac": {
-        "display": "Diclofenac",
-        "alternatives": ["Diclofenac tablet", "Diclofenac gel", "Diclofenac injection"],
-        "range": "Rs. 12-120 per pack",
-    },
-    "digoxin": {
-        "display": "Digoxin",
-        "alternatives": ["Digoxin 0.25 mg tablet", "Digoxin elixir"],
-        "range": "Rs. 10-70 per strip",
-    },
-    "escitalopram": {
-        "display": "Escitalopram",
-        "alternatives": ["Escitalopram 5 mg", "Escitalopram 10 mg", "Escitalopram 20 mg"],
-        "range": "Rs. 35-180 per strip of 10 tablets",
-    },
-    "fluconazole": {
-        "display": "Fluconazole",
-        "alternatives": ["Fluconazole 150 mg", "Fluconazole 200 mg"],
-        "range": "Rs. 15-120 per strip",
-    },
-    "fluoxetine": {
-        "display": "Fluoxetine",
-        "alternatives": ["Fluoxetine 20 mg capsule", "Fluoxetine dispersible tablet"],
-        "range": "Rs. 25-125 per strip",
-    },
-    "furosemide": {
-        "display": "Furosemide",
-        "alternatives": ["Furosemide tablet", "Furosemide injection"],
-        "range": "Rs. 8-60 per strip",
-    },
-    "glimepiride": {
-        "display": "Glimepiride",
-        "alternatives": ["Glimepiride 1 mg", "Glimepiride 2 mg", "Glimepiride + metformin"],
-        "range": "Rs. 18-140 per strip",
-    },
-    "ibuprofen": {
-        "display": "Ibuprofen",
-        "alternatives": ["Ibuprofen tablet", "Ibuprofen + paracetamol tablet"],
-        "range": "Rs. 12-85 per strip",
-    },
-    "insulin": {
-        "display": "Insulin",
-        "alternatives": ["Regular insulin", "NPH insulin", "Premix insulin"],
-        "range": "Rs. 140-900 per vial or cartridge",
-    },
-    "levothyroxine": {
-        "display": "Levothyroxine",
-        "alternatives": ["Levothyroxine 25 mcg", "Levothyroxine 50 mcg", "Levothyroxine 100 mcg"],
-        "range": "Rs. 95-190 per bottle of 100 tablets",
-    },
-    "linezolid": {
-        "display": "Linezolid",
-        "alternatives": ["Linezolid 600 mg tablet", "Linezolid suspension"],
-        "range": "Rs. 250-850 per strip",
-    },
-    "losartan": {
-        "display": "Losartan",
-        "alternatives": ["Losartan 25 mg", "Losartan 50 mg", "Losartan + hydrochlorothiazide"],
-        "range": "Rs. 25-120 per strip",
-    },
-    "metformin": {
-        "display": "Metformin",
-        "alternatives": ["Metformin immediate-release", "Metformin sustained-release"],
-        "range": "Rs. 18-110 per strip of 10 tablets",
-    },
-    "methotrexate": {
-        "display": "Methotrexate",
-        "alternatives": ["Methotrexate tablet", "Methotrexate injection"],
-        "range": "Rs. 40-220 per pack",
-    },
-    "omeprazole": {
-        "display": "Omeprazole",
-        "alternatives": ["Omeprazole capsule", "Omeprazole + domperidone capsule"],
-        "range": "Rs. 18-110 per strip",
-    },
-    "pantoprazole": {
-        "display": "Pantoprazole",
-        "alternatives": ["Pantoprazole 40 mg", "Pantoprazole + domperidone capsule"],
-        "range": "Rs. 25-160 per strip",
-    },
-    "phenytoin": {
-        "display": "Phenytoin",
-        "alternatives": ["Phenytoin tablet", "Phenytoin suspension"],
-        "range": "Rs. 12-80 per strip",
-    },
-    "ramipril": {
-        "display": "Ramipril",
-        "alternatives": ["Ramipril 2.5 mg", "Ramipril 5 mg"],
-        "range": "Rs. 30-140 per strip",
-    },
-    "rivaroxaban": {
-        "display": "Rivaroxaban",
-        "alternatives": ["Rivaroxaban 10 mg", "Rivaroxaban 15 mg", "Rivaroxaban 20 mg"],
-        "range": "Rs. 120-620 per strip",
-    },
-    "rosuvastatin": {
-        "display": "Rosuvastatin",
-        "alternatives": ["Rosuvastatin 5 mg", "Rosuvastatin 10 mg", "Rosuvastatin 20 mg"],
-        "range": "Rs. 45-220 per strip",
-    },
-    "sertraline": {
-        "display": "Sertraline",
-        "alternatives": ["Sertraline 25 mg", "Sertraline 50 mg", "Sertraline 100 mg"],
-        "range": "Rs. 45-210 per strip",
-    },
-    "simvastatin": {
-        "display": "Simvastatin",
-        "alternatives": ["Simvastatin 10 mg", "Simvastatin 20 mg", "Simvastatin 40 mg"],
-        "range": "Rs. 30-170 per strip",
-    },
-    "sitagliptin": {
-        "display": "Sitagliptin",
-        "alternatives": ["Sitagliptin tablet", "Sitagliptin + metformin tablet"],
-        "range": "Rs. 80-360 per strip",
-    },
-    "spironolactone": {
-        "display": "Spironolactone",
-        "alternatives": ["Spironolactone 25 mg", "Spironolactone 50 mg"],
-        "range": "Rs. 20-130 per strip",
-    },
-    "telmisartan": {
-        "display": "Telmisartan",
-        "alternatives": ["Telmisartan 40 mg", "Telmisartan 80 mg", "Telmisartan + amlodipine"],
-        "range": "Rs. 45-190 per strip",
-    },
-    "tramadol": {
-        "display": "Tramadol",
-        "alternatives": ["Tramadol capsule", "Tramadol + paracetamol tablet"],
-        "range": "Rs. 20-120 per strip",
-    },
-    "warfarin": {
-        "display": "Warfarin",
-        "alternatives": ["Warfarin 1 mg", "Warfarin 2 mg", "Warfarin 5 mg"],
-        "range": "Rs. 18-80 per strip",
-    },
-}
+# # ---------------------------------------------------------------------------
+# # Generic drug price catalog
+# # Keyed by lowercase generic INN name.
+# # ---------------------------------------------------------------------------
+# PRICE_CATALOG = {
+#     "acetaminophen": {
+#         "display": "Paracetamol / Acetaminophen",
+#         "alternatives": ["Paracetamol tablet", "Paracetamol suspension"],
+#         "range": "Rs. 12-45 per strip of 10 tablets",
+#     },
+#     "amlodipine": {
+#         "display": "Amlodipine",
+#         "alternatives": ["Amlodipine 2.5 mg", "Amlodipine 5 mg", "Amlodipine 10 mg"],
+#         "range": "Rs. 12-60 per strip of 10 tablets",
+#     },
+#     "amoxicillin": {
+#         "display": "Amoxicillin",
+#         "alternatives": ["Amoxicillin capsule", "Amoxicillin + clavulanate tablet"],
+#         "range": "Rs. 45-220 per strip",
+#     },
+#     "aspirin": {
+#         "display": "Aspirin",
+#         "alternatives": ["Aspirin gastro-resistant tablet", "Low-dose aspirin tablet"],
+#         "range": "Rs. 5-45 per strip of 14 tablets",
+#     },
+#     "atorvastatin": {
+#         "display": "Atorvastatin",
+#         "alternatives": ["Atorvastatin 10 mg", "Atorvastatin 20 mg", "Atorvastatin 40 mg"],
+#         "range": "Rs. 35-190 per strip of 10 tablets",
+#     },
+#     "azithromycin": {
+#         "display": "Azithromycin",
+#         "alternatives": ["Azithromycin 250 mg", "Azithromycin 500 mg"],
+#         "range": "Rs. 55-150 per strip of 3 tablets",
+#     },
+#     "calcium": {
+#         "display": "Calcium carbonate",
+#         "alternatives": ["Calcium carbonate", "Calcium + vitamin D3"],
+#         "range": "Rs. 60-220 per strip",
+#     },
+#     "carbamazepine": {
+#         "display": "Carbamazepine",
+#         "alternatives": ["Carbamazepine immediate-release", "Carbamazepine controlled-release"],
+#         "range": "Rs. 18-95 per strip of 10 tablets",
+#     },
+#     "ciprofloxacin": {
+#         "display": "Ciprofloxacin",
+#         "alternatives": ["Ciprofloxacin 250 mg", "Ciprofloxacin 500 mg"],
+#         "range": "Rs. 25-95 per strip of 10 tablets",
+#     },
+#     "clarithromycin": {
+#         "display": "Clarithromycin",
+#         "alternatives": ["Clarithromycin 250 mg", "Clarithromycin 500 mg"],
+#         "range": "Rs. 120-420 per strip",
+#     },
+#     "clopidogrel": {
+#         "display": "Clopidogrel",
+#         "alternatives": ["Clopidogrel 75 mg", "Clopidogrel + aspirin fixed dose"],
+#         "range": "Rs. 35-170 per strip of 10 tablets",
+#     },
+#     "diclofenac": {
+#         "display": "Diclofenac",
+#         "alternatives": ["Diclofenac tablet", "Diclofenac gel", "Diclofenac injection"],
+#         "range": "Rs. 12-120 per pack",
+#     },
+#     "digoxin": {
+#         "display": "Digoxin",
+#         "alternatives": ["Digoxin 0.25 mg tablet", "Digoxin elixir"],
+#         "range": "Rs. 10-70 per strip",
+#     },
+#     "escitalopram": {
+#         "display": "Escitalopram",
+#         "alternatives": ["Escitalopram 5 mg", "Escitalopram 10 mg", "Escitalopram 20 mg"],
+#         "range": "Rs. 35-180 per strip of 10 tablets",
+#     },
+#     "fluconazole": {
+#         "display": "Fluconazole",
+#         "alternatives": ["Fluconazole 150 mg", "Fluconazole 200 mg"],
+#         "range": "Rs. 15-120 per strip",
+#     },
+#     "fluoxetine": {
+#         "display": "Fluoxetine",
+#         "alternatives": ["Fluoxetine 20 mg capsule", "Fluoxetine dispersible tablet"],
+#         "range": "Rs. 25-125 per strip",
+#     },
+#     "furosemide": {
+#         "display": "Furosemide",
+#         "alternatives": ["Furosemide tablet", "Furosemide injection"],
+#         "range": "Rs. 8-60 per strip",
+#     },
+#     "glimepiride": {
+#         "display": "Glimepiride",
+#         "alternatives": ["Glimepiride 1 mg", "Glimepiride 2 mg", "Glimepiride + metformin"],
+#         "range": "Rs. 18-140 per strip",
+#     },
+#     "ibuprofen": {
+#         "display": "Ibuprofen",
+#         "alternatives": ["Ibuprofen tablet", "Ibuprofen + paracetamol tablet"],
+#         "range": "Rs. 12-85 per strip",
+#     },
+#     "insulin": {
+#         "display": "Insulin",
+#         "alternatives": ["Regular insulin", "NPH insulin", "Premix insulin"],
+#         "range": "Rs. 140-900 per vial or cartridge",
+#     },
+#     "levothyroxine": {
+#         "display": "Levothyroxine",
+#         "alternatives": ["Levothyroxine 25 mcg", "Levothyroxine 50 mcg", "Levothyroxine 100 mcg"],
+#         "range": "Rs. 95-190 per bottle of 100 tablets",
+#     },
+#     "linezolid": {
+#         "display": "Linezolid",
+#         "alternatives": ["Linezolid 600 mg tablet", "Linezolid suspension"],
+#         "range": "Rs. 250-850 per strip",
+#     },
+#     "losartan": {
+#         "display": "Losartan",
+#         "alternatives": ["Losartan 25 mg", "Losartan 50 mg", "Losartan + hydrochlorothiazide"],
+#         "range": "Rs. 25-120 per strip",
+#     },
+#     "metformin": {
+#         "display": "Metformin",
+#         "alternatives": ["Metformin immediate-release", "Metformin sustained-release"],
+#         "range": "Rs. 18-110 per strip of 10 tablets",
+#     },
+#     "methotrexate": {
+#         "display": "Methotrexate",
+#         "alternatives": ["Methotrexate tablet", "Methotrexate injection"],
+#         "range": "Rs. 40-220 per pack",
+#     },
+#     "omeprazole": {
+#         "display": "Omeprazole",
+#         "alternatives": ["Omeprazole capsule", "Omeprazole + domperidone capsule"],
+#         "range": "Rs. 18-110 per strip",
+#     },
+#     "pantoprazole": {
+#         "display": "Pantoprazole",
+#         "alternatives": ["Pantoprazole 40 mg", "Pantoprazole + domperidone capsule"],
+#         "range": "Rs. 25-160 per strip",
+#     },
+#     "phenytoin": {
+#         "display": "Phenytoin",
+#         "alternatives": ["Phenytoin tablet", "Phenytoin suspension"],
+#         "range": "Rs. 12-80 per strip",
+#     },
+#     "ramipril": {
+#         "display": "Ramipril",
+#         "alternatives": ["Ramipril 2.5 mg", "Ramipril 5 mg"],
+#         "range": "Rs. 30-140 per strip",
+#     },
+#     "rivaroxaban": {
+#         "display": "Rivaroxaban",
+#         "alternatives": ["Rivaroxaban 10 mg", "Rivaroxaban 15 mg", "Rivaroxaban 20 mg"],
+#         "range": "Rs. 120-620 per strip",
+#     },
+#     "rosuvastatin": {
+#         "display": "Rosuvastatin",
+#         "alternatives": ["Rosuvastatin 5 mg", "Rosuvastatin 10 mg", "Rosuvastatin 20 mg"],
+#         "range": "Rs. 45-220 per strip",
+#     },
+#     "sertraline": {
+#         "display": "Sertraline",
+#         "alternatives": ["Sertraline 25 mg", "Sertraline 50 mg", "Sertraline 100 mg"],
+#         "range": "Rs. 45-210 per strip",
+#     },
+#     "simvastatin": {
+#         "display": "Simvastatin",
+#         "alternatives": ["Simvastatin 10 mg", "Simvastatin 20 mg", "Simvastatin 40 mg"],
+#         "range": "Rs. 30-170 per strip",
+#     },
+#     "sitagliptin": {
+#         "display": "Sitagliptin",
+#         "alternatives": ["Sitagliptin tablet", "Sitagliptin + metformin tablet"],
+#         "range": "Rs. 80-360 per strip",
+#     },
+#     "spironolactone": {
+#         "display": "Spironolactone",
+#         "alternatives": ["Spironolactone 25 mg", "Spironolactone 50 mg"],
+#         "range": "Rs. 20-130 per strip",
+#     },
+#     "telmisartan": {
+#         "display": "Telmisartan",
+#         "alternatives": ["Telmisartan 40 mg", "Telmisartan 80 mg", "Telmisartan + amlodipine"],
+#         "range": "Rs. 45-190 per strip",
+#     },
+#     "tramadol": {
+#         "display": "Tramadol",
+#         "alternatives": ["Tramadol capsule", "Tramadol + paracetamol tablet"],
+#         "range": "Rs. 20-120 per strip",
+#     },
+#     "warfarin": {
+#         "display": "Warfarin",
+#         "alternatives": ["Warfarin 1 mg", "Warfarin 2 mg", "Warfarin 5 mg"],
+#         "range": "Rs. 18-80 per strip",
+#     },
+# }
 
 # ---------------------------------------------------------------------------
 # Brand savings lookup — display data for the "Save Money" table.

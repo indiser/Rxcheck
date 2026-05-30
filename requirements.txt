@@ -9,3 +9,4 @@ google-genai
 openai
 huggingface_hub
 pillow
+pandas
