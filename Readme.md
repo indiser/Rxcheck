@@ -129,7 +129,7 @@ CREATE TABLE etl_sync_state (
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/rxcheck.git
+   git clone https://github.com/indiser/Rxcheck.git
    cd rxcheck
    ```
 
@@ -572,8 +572,8 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ## 📧 Contact
 
 For questions, bug reports, or feature requests:
-- **GitHub Issues**: [Report a bug or request a feature](https://github.com/yourusername/rxcheck/issues)
-- **Email**: your.email@example.com
+- **GitHub Issues**: [Report a bug or request a feature](https://github.com/indiser/Rxcheck/issues)
+- **Email**: indiser01@gmail.com
 
 ---
 
