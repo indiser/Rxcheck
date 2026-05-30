@@ -9,6 +9,49 @@
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+
+### 🎨 Application Interface
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="images/home-screen.png" alt="Home Screen" />
+      <p align="center"><b>Home Screen</b><br/>Clean interface with dual input modes</p>
+    </td>
+    <td width="50%">
+      <img src="images/drug-input.png" alt="Drug Input" />
+      <p align="center"><b>Drug Input</b><br/>Manual entry with autocomplete</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="images/prescription-upload.png" alt="Prescription Upload" />
+      <p align="center"><b>Prescription Upload</b><br/>Gemini Vision-powered OCR</p>
+    </td>
+    <td width="50%">
+      <img src="images/interaction-results.png" alt="Interaction Results" />
+      <p align="center"><b>Interaction Results</b><br/>Risk categorization dashboard</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="images/generic-alternatives.png" alt="Generic Alternatives" />
+      <p align="center"><b>Generic Alternatives</b><br/>Cost savings with PMBJP options</p>
+    </td>
+    <td width="50%">
+      <img src="images/emergency-warning.png" alt="Emergency Warning" />
+      <p align="center"><b>Emergency Warning</b><br/>High-risk interaction alerts</p>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
+
 ## ✨ Key Features
 
 ### 🔐 **Enterprise-Grade Security**
@@ -355,7 +398,7 @@ graph LR
     
     subgraph Secure["🔒 Secure Zone"]
         DB[("PostgreSQL<br/>(Connection Pool)")]
-        RULES["Interaction Rules<br/>(Server-side only)"]]
+        RULES["Interaction Rules<br/>(Server-side only)"]
     end
     
     subgraph External["☁️ External Services"]
