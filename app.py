@@ -384,6 +384,23 @@ def check_interactions():
     try:
         # Pre-resolve every drug to its DB id(s) once, not per-pair.
         # Each _resolve_drug_ids() call manages its own pooled connection.
+        # drug_ids: list[list[int]] = []
+        # for drug in resolved:
+        #     candidate_names = [
+        #         drug.get("genericName", ""),
+        #         drug.get("rxName", ""),
+        #         drug.get("queryName", ""),
+        #         drug.get("rawName", ""),
+        #         *drug.get("ingredients", []),
+        #     ]
+        #     ids: list[int] = []
+        #     for name in candidate_names:
+        #         if name:
+        #             ids = _resolve_drug_ids(name)
+        #             if ids:
+        #                 break
+        #     drug_ids.append(ids)
+
         drug_ids: list[list[int]] = []
         for drug in resolved:
             candidate_names = [
@@ -393,13 +410,20 @@ def check_interactions():
                 drug.get("rawName", ""),
                 *drug.get("ingredients", []),
             ]
-            ids: list[int] = []
+            
+            # Offline compound fallback: split names like "amoxicillin clavulanate"
+            query_name = drug.get("queryName", "")
+            if " " in query_name or "+" in query_name:
+                candidate_names.extend(re.split(r"[\s+]+", query_name))
+
+            # Use a Set to collect ALL valid ingredient IDs for this specific drug
+            ids_for_this_drug = set()
             for name in candidate_names:
                 if name:
-                    ids = _resolve_drug_ids(name)
-                    if ids:
-                        break
-            drug_ids.append(ids)
+                    matched_ids = _resolve_drug_ids(name)
+                    ids_for_this_drug.update(matched_ids)
+                    
+            drug_ids.append(list(ids_for_this_drug))
 
         # Check every unique pair using a single pooled connection
         with _db_conn() as cur:

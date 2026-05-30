@@ -55,6 +55,8 @@ import requests
 from dotenv import load_dotenv
 from groq import Groq
 
+from llm_router import extract_clinical_data
+
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
@@ -474,51 +476,70 @@ def _parse_llm_response(raw: str) -> list[dict[str, str]]:
     return valid
 
 
-def call_groq_with_retry(text: str, drug_name: str) -> list[dict[str, str]]:
-    """
-    Send the interaction text to Groq and return parsed structured interactions.
+# def call_groq_with_retry(text: str, drug_name: str) -> list[dict[str, str]]:
+#     """
+#     Send the interaction text to Groq and return parsed structured interactions.
 
-    Implements exponential back-off on 429 (rate limit) and transient errors.
-    Returns an empty list on unrecoverable failure so the pipeline continues.
+#     Implements exponential back-off on 429 (rate limit) and transient errors.
+#     Returns an empty list on unrecoverable failure so the pipeline continues.
+#     """
+#     client       = _get_groq_client()
+#     user_content = (
+#         f"Primary drug: {drug_name}\n\n"
+#         f"--- FDA DRUG INTERACTIONS TEXT ---\n{text[:3000]}\n---"
+#     )
+
+#     for attempt in range(1, GROQ_MAX_RETRIES + 1):
+#         try:
+#             response = client.chat.completions.create(
+#                 model=GROQ_MODEL,
+#                 max_tokens=GROQ_MAX_TOKENS,
+#                 temperature=0.0,
+#                 messages=[
+#                     {"role": "system", "content": GROQ_SYSTEM_PROMPT},
+#                     {"role": "user",   "content": user_content},
+#                 ],
+#             )
+#             raw_reply = response.choices[0].message.content or ""
+#             result    = _parse_llm_response(raw_reply)
+#             log.debug("LLM extracted %d interactions for '%s'.", len(result), drug_name)
+#             return result
+
+#         except Exception as exc:  # noqa: BLE001
+#             err_str       = str(exc)
+#             is_rate_limit = "429" in err_str or "rate_limit" in err_str.lower()
+#             wait          = GROQ_BACKOFF_BASE ** attempt + (2.0 if is_rate_limit else 0.0)
+#             if attempt < GROQ_MAX_RETRIES:
+#                 log.warning(
+#                     "Groq call failed (attempt %d/%d): %s — retrying in %.1fs",
+#                     attempt, GROQ_MAX_RETRIES, exc, wait,
+#                 )
+#                 time.sleep(wait)
+#             else:
+#                 log.error("Groq call failed permanently for '%s': %s", drug_name, exc)
+#                 return []
+
+#     return []
+
+def call_llm_with_retry(text: str, drug_name: str) -> list[dict[str, str]]:
     """
-    client       = _get_groq_client()
+    Send the interaction text to the Multi-Provider Router.
+    The router handles its own failovers and rate limits.
+    """
     user_content = (
         f"Primary drug: {drug_name}\n\n"
         f"--- FDA DRUG INTERACTIONS TEXT ---\n{text[:3000]}\n---"
     )
 
-    for attempt in range(1, GROQ_MAX_RETRIES + 1):
-        try:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                max_tokens=GROQ_MAX_TOKENS,
-                temperature=0.0,
-                messages=[
-                    {"role": "system", "content": GROQ_SYSTEM_PROMPT},
-                    {"role": "user",   "content": user_content},
-                ],
-            )
-            raw_reply = response.choices[0].message.content or ""
-            result    = _parse_llm_response(raw_reply)
-            log.debug("LLM extracted %d interactions for '%s'.", len(result), drug_name)
-            return result
-
-        except Exception as exc:  # noqa: BLE001
-            err_str       = str(exc)
-            is_rate_limit = "429" in err_str or "rate_limit" in err_str.lower()
-            wait          = GROQ_BACKOFF_BASE ** attempt + (2.0 if is_rate_limit else 0.0)
-            if attempt < GROQ_MAX_RETRIES:
-                log.warning(
-                    "Groq call failed (attempt %d/%d): %s — retrying in %.1fs",
-                    attempt, GROQ_MAX_RETRIES, exc, wait,
-                )
-                time.sleep(wait)
-            else:
-                log.error("Groq call failed permanently for '%s': %s", drug_name, exc)
-                return []
-
-    return []
-
+    try:
+        raw_reply = extract_clinical_data(GROQ_SYSTEM_PROMPT, user_content)
+        result = _parse_llm_response(raw_reply)
+        log.debug("LLM router extracted %d interactions for '%s'.", len(result), drug_name)
+        return result
+    except Exception as exc:
+        log.error("All LLM providers exhausted for '%s': %s", drug_name, exc)
+        # Return empty list so the ETL pipeline doesn't crash, it just skips this record
+        return []
 
 # ---------------------------------------------------------------------------
 # Stage 5-7: Load into PostgreSQL + commit checkpoint atomically
@@ -572,7 +593,8 @@ def load_fda_records(
 
             # --- LLM stage ---
             time.sleep(GROQ_RATE_LIMIT_SLEEP)  # honour rate limit before each call
-            structured = call_groq_with_retry(itext, generic)
+            # structured = call_groq_with_retry(itext, generic)
+            structured = call_llm_with_retry(itext, generic)
 
             if not structured:
                 log.info("  └─ No interactions extracted (LLM returned empty).")
@@ -749,7 +771,9 @@ def main() -> None:
             for raw in records:
                 t = transform_record(raw)
                 if t and t["interactions_text"]:
-                    structured = call_groq_with_retry(t["interactions_text"], t["generic_name"])
+                    # structured = call_groq_with_retry(t["interactions_text"], t["generic_name"])
+                    structured = call_llm_with_retry(t["interactions_text"], t["generic_name"])
+
                     for item in structured:
                         log.info(
                             "  [DRY-RUN] %s ↔ %s  severity=%s",
