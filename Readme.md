@@ -440,7 +440,7 @@ graph LR
 1. **Clone the repository**
    ```bash
    git clone https://github.com/indiser/Rxcheck.git
-   cd rxcheck
+   cd Rxcheck
    ```
 
 2. **Create virtual environment**
