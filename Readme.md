@@ -357,40 +357,31 @@ erDiagram
 ### LLM Router Failover Strategy
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Groq: Primary
-    Groq --> Success: 200 OK
-    Groq --> Cerebras: 429/Quota
+flowchart LR
+    Start([Start]) --> Groq["Groq<br/>llama-3.3-70b-versatile<br/>(Primary)"]
+    Groq -->|200 OK| Success([Success])
+    Groq -->|429/Quota| Cerebras["Cerebras<br/>gpt-oss-120b<br/>(Fallback 1)"]
     
-    Cerebras --> Success: 200 OK
-    Cerebras --> Gemini: 429/Quota
+    Cerebras -->|200 OK| Success
+    Cerebras -->|429/Quota| Gemini["Gemini<br/>gemini-2.5-flash<br/>(Fallback 2)"]
     
-    Gemini --> Success: 200 OK
-    Gemini --> OpenRouter: 429/Quota
+    Gemini -->|200 OK| Success
+    Gemini -->|429/Quota| OpenRouter["OpenRouter<br/>free tier<br/>(Fallback 3)"]
     
-    OpenRouter --> Success: 200 OK
-    OpenRouter --> HuggingFace: 429/Quota
+    OpenRouter -->|200 OK| Success
+    OpenRouter -->|429/Quota| HuggingFace["HuggingFace<br/>Meta-Llama-3-8B<br/>(Fallback 4)"]
     
-    HuggingFace --> Success: 200 OK
-    HuggingFace --> Failure: All providers exhausted
+    HuggingFace -->|200 OK| Success
+    HuggingFace -->|All exhausted| Failure([Failure])
     
-    Success --> [*]
-    Failure --> [*]
-    
-    note right of Groq
-        llama-3.3-70b-versatile
-        Fastest, best for JSON
-    end note
-    
-    note right of Cerebras
-        gpt-oss-120b
-        High throughput
-    end note
-    
-    note right of Gemini
-        gemini-2.5-flash
-        Low latency
-    end note
+    style Start fill:#4caf50,color:#fff
+    style Success fill:#2196f3,color:#fff
+    style Failure fill:#f44336,color:#fff
+    style Groq fill:#e3f2fd
+    style Cerebras fill:#f3e5f5
+    style Gemini fill:#fff3e0
+    style OpenRouter fill:#e8f5e9
+    style HuggingFace fill:#fce4ec
 ```
 
 ### Security & Data Flow
